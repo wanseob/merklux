@@ -15,4 +15,16 @@
 module.exports = {
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
+  networks: {
+    devRoot: {
+      host: "localhost",
+      port: 8545,
+      network_id: "180903"
+    },
+    devSide: {
+      host: "localhost",
+      port: 8546,
+      network_id: "180904"
+    }
+  }
 };
