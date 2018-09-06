@@ -25,6 +25,16 @@ module.exports = {
       host: "localhost",
       port: 8546,
       network_id: "180904"
+    },
+    testRoot: {
+      host: "localhost",
+      port: 8547,
+      network_id: "180905"
+    },
+    testSide: {
+      host: "localhost",
+      port: 8548,
+      network_id: "180906"
     }
   }
 };
