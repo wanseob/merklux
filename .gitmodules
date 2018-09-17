@@ -1,0 +1,3 @@
+[submodule "libs/chriseth/patricia-trie"]
+	path = libs/chriseth/patricia-trie
+	url = https://github.com/chriseth/patricia-trie
