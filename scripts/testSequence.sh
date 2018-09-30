@@ -1,6 +1,9 @@
 #!/bin/bash
 
+
 # Test script should be run in the base directory
+cd `dirname "$0"` && cd ../
+
 if [ -f "truffle.js" ]
 then
   echo "Start testing"
@@ -10,7 +13,7 @@ else
 fi
 
 # Exit when the test directory is empty
-if !([ "$(ls -A ./test)" ]); then
+if !([ "$(ls -A ./test/sequence)" ]); then
   echo "There does not exist any test case"
   exit 1
 fi
@@ -68,7 +71,7 @@ sleep 5
 # Run test files by orders.
 # A test file should have name like {order}-{sort of chain}-{title}.{ext}
 # eg. "1-root-firstcase.js", "2-side-secondcase.js"
-for testfile in ./test/*; do
+for testfile in ./test/sequence/*; do
   if [[ "$testfile" =~ ^\.\/test\/[0-9]*-root-.*$ ]]; then
     truffle test $testfile --network testRoot
     [ $? -ne 0 ] && exit $?

@@ -11,10 +11,11 @@
     "truffle": "^4.1.13",
     "truffle-hdwallet-provider": "^0.0.5"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "scripts": {
-    "test": "truffle test"
+    "sequenceTest": "scripts/sequenceTest.sh",
+    "build": "truffle compile",
+    "migrate": "truffle migrate"
   },
   "repository": {
     "type": "git",
