@@ -13,6 +13,7 @@
  */
 
 module.exports = {
+  migrations_directory: "./migrations",
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
   networks: {
@@ -41,5 +42,11 @@ module.exports = {
       port: 8549,
       network_id: "180906"
     }
-  }
+  },
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 500
+    }
+  } 
 };
