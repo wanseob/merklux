@@ -11,7 +11,7 @@ const Status = {
     OPENED: 0,
     ONGOING: 1,
     SUCCESS: 2,
-    FAIL: 3
+    FAILURE: 3
 };
 
 contract('MerkluxCaseTree', async ([_, primary, nonPrimary]) => {

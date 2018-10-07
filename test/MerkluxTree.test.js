@@ -151,9 +151,9 @@ contract('MerkluxTree', async ([_, primary, nonPrimary]) => {
 
                 // Get root hash to start to find nodes recursively
                 let rootNode = toNodeObject(0, 'root', await tree.getRootEdge());
-                let rootHash = rootNode.node;
+                let rootValue = rootNode.node;
                 // Find nodes recursively and add leaf nodes to the array
-                await getNodeRecursively(1, 'root', rootHash);
+                await getNodeRecursively(1, 'root', rootValue);
 
                 // Compare the found leaf nodes and initial items
                 let hashValuesFromLeafNodes = leafNodes.map(leafNode => leafNode.hash);

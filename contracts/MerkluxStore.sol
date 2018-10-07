@@ -1,9 +1,9 @@
 pragma solidity ^0.4.24;
 
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "./MerkluxTree.sol";
 
-contract MerkluxStore is Ownable {
+contract MerkluxStore is Secondary {
     struct Namespace {
         string name;
         address[] allowedReducers;
@@ -18,18 +18,18 @@ contract MerkluxStore is Ownable {
             require(!_compareString(_name, namespaces[i].name));
         }
         namespaces.push(Namespace({
-            name: _name,
-            allowedReducers: new address[](0),
-            tree: new MerkluxTree()
-        }));
+            name : _name,
+            allowedReducers : new address[](0),
+            tree : new MerkluxTree()
+            }));
     }
 
     function deleteNamespace(string _name) public {
         var (exist, index) = _findNamespaceIndex(_name);
-        if(exist) {
+        if (exist) {
             for (uint i = index; i < namespaces.length; i++) {
-                if( i+1 < namespaces.length) {
-                    namespaces[i] = namespaces[i+1];
+                if (i + 1 < namespaces.length) {
+                    namespaces[i] = namespaces[i + 1];
                 }
             }
             delete namespaces[namespaces.length - 1];
@@ -47,18 +47,18 @@ contract MerkluxStore is Ownable {
         }
     }
 
-    function denyReducer(string _namespace, address _reducer) public  {
+    function denyReducer(string _namespace, address _reducer) public {
         var (exist, index) = _findNamespaceIndex(_namespace);
         if (exist) {
             uint reducerIndex = 0;
             for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
-                if(_reducer == namespaces[index].allowedReducers[i]) {
+                if (_reducer == namespaces[index].allowedReducers[i]) {
                     for (uint j = reducerIndex; j < namespaces[index].allowedReducers.length; j++) {
-                        if(reducerIndex+1 <namespaces[index].allowedReducers.length) {
-                            namespaces[index].allowedReducers[reducerIndex] = namespaces[index].allowedReducers[reducerIndex+1];
+                        if (reducerIndex + 1 < namespaces[index].allowedReducers.length) {
+                            namespaces[index].allowedReducers[reducerIndex] = namespaces[index].allowedReducers[reducerIndex + 1];
                         }
                     }
-                    delete namespaces[index].allowedReducers[namespaces[index].allowedReducers.length-1];
+                    delete namespaces[index].allowedReducers[namespaces[index].allowedReducers.length - 1];
                     namespaces[index].allowedReducers.length--;
                 }
             }
@@ -67,7 +67,7 @@ contract MerkluxStore is Ownable {
 
     function getAllowedReducers(string _namespace) view public returns (address[] memory reducers) {
         var (exist, index) = _findNamespaceIndex(_namespace);
-        if(exist) {
+        if (exist) {
             return namespaces[index].allowedReducers;
         }
     }
@@ -76,7 +76,7 @@ contract MerkluxStore is Ownable {
         var (exist, index) = _findNamespaceIndex(_namespace);
         if (exist) {
             for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
-                if(_reducer == namespaces[index].allowedReducers[i]) {
+                if (_reducer == namespaces[index].allowedReducers[i]) {
                     return true;
                 }
             }
@@ -94,7 +94,7 @@ contract MerkluxStore is Ownable {
 
     function _findNamespaceIndex(string _name) view private returns (bool exist, uint index) {
         for (uint i = 0; i < namespaces.length; i++) {
-            if(_compareString(_name, namespaces[i].name)) {
+            if (_compareString(_name, namespaces[i].name)) {
                 index = i;
                 exist = true;
                 return;
@@ -105,6 +105,6 @@ contract MerkluxStore is Ownable {
     }
 
     function _compareString(string a, string b) pure private returns (bool) {
-        return keccak256(bytes(a))==keccak256(bytes(b));
+        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }

@@ -8,7 +8,7 @@ import "./MerkluxTree.sol";
 
 
 contract MerkluxCaseTree is MerkluxTree {
-    enum Status {OPENED, ONGOING, SUCCESS, FAIL}
+    enum Status {OPENED, ONGOING, SUCCESS, FAILURE}
 
     event OnChangeStatus(Status s);
 
