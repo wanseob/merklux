@@ -139,7 +139,6 @@ contract('MerkluxTree', async ([_, primary, nonPrimary]) => {
               let leafNodeAlreadyExist = leafNodes.reduce((val, item) => JSON.stringify(item) === JSON.stringify(leafNode), 0)
               if (!leafNodeAlreadyExist) {
                 leafNodes.push(leafNode)
-                await progress.log(`Found leaf node (${leafNode.hash})`, 500)
               }
             } else {
               await getNodeRecursively(depth + 1, hash, nodeHashValue)
