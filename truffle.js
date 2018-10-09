@@ -13,34 +13,14 @@
  */
 
 module.exports = {
-  migrations_directory: "./migrations",
+  migrations_directory: './migrations',
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
   networks: {
     development: {
-      host: "localhost",
+      host: 'localhost',
       port: 8545,
-      network_id: "180902"
-    },
-    devRoot: {
-      host: "localhost",
-      port: 8546,
-      network_id: "180903"
-    },
-    devSide: {
-      host: "localhost",
-      port: 8547,
-      network_id: "180904"
-    },
-    testRoot: {
-      host: "localhost",
-      port: 8548,
-      network_id: "180905"
-    },
-    testSide: {
-      host: "localhost",
-      port: 8549,
-      network_id: "180906"
+      network_id: '*'
     }
   },
   solc: {
@@ -48,5 +28,5 @@ module.exports = {
       enabled: true,
       runs: 500
     }
-  } 
-};
+  }
+}
