@@ -65,14 +65,14 @@ contract MerkluxStore is Secondary {
         }
     }
 
-    function getAllowedReducers(string _namespace) view public returns (address[] memory reducers) {
+    function getAllowedReducers(string _namespace) public view returns (address[] memory reducers) {
         var (exist, index) = _findNamespaceIndex(_namespace);
         if (exist) {
             return namespaces[index].allowedReducers;
         }
     }
 
-    function isAllowed(string _namespace, address _reducer) view public returns (bool){
+    function isAllowed(string _namespace, address _reducer) public view returns (bool){
         var (exist, index) = _findNamespaceIndex(_namespace);
         if (exist) {
             for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
@@ -84,15 +84,15 @@ contract MerkluxStore is Secondary {
         return false;
     }
 
-    function totalNamespace() view public returns (uint) {
+    function totalNamespace() public view returns (uint) {
         return namespaces.length;
     }
 
-    function getNamespace(uint index) view public returns (string) {
+    function getNamespace(uint index) public view returns (string) {
         return namespaces[index].name;
     }
 
-    function _findNamespaceIndex(string _name) view private returns (bool exist, uint index) {
+    function _findNamespaceIndex(string _name) private view returns (bool exist, uint index) {
         for (uint i = 0; i < namespaces.length; i++) {
             if (_compareString(_name, namespaces[i].name)) {
                 index = i;
@@ -104,7 +104,7 @@ contract MerkluxStore is Secondary {
         return;
     }
 
-    function _compareString(string a, string b) pure private returns (bool) {
+    function _compareString(string a, string b) private pure returns (bool) {
         return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }

@@ -124,8 +124,4 @@ contract MerkluxCaseTree is MerkluxTree {
         status = _status;
         emit OnChangeStatus(status);
     }
-
-    //    function addValue() public onlyPrimary {
-    //
-    //    }
 }
