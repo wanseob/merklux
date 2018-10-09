@@ -7,7 +7,7 @@ import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "./MerkluxTree.sol";
 
 
-contract MerkluxCaseTree is MerkluxTree {
+contract MerkluxCase is MerkluxTree {
     enum Status {OPENED, ONGOING, SUCCESS, FAILURE}
 
     event OnChangeStatus(Status s);

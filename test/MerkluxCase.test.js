@@ -4,7 +4,7 @@ const BigNumber = web3.BigNumber
 const should = chai.use(require('chai-bignumber')(BigNumber)).should()
 
 const MerkluxTree = artifacts.require('MerkluxTree')
-const MerkluxCaseTree = artifacts.require('MerkluxCaseTree')
+const MerkluxCase= artifacts.require('MerkluxCase')
 const { progress } = require('./utils')
 
 const Status = {
@@ -14,7 +14,7 @@ const Status = {
   FAILURE: 3
 }
 
-contract('MerkluxCaseTree', async ([_, primary, nonPrimary]) => {
+contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
   let originalRootEdge
   let targetRootEdge
   let snapshotTree
@@ -49,11 +49,11 @@ contract('MerkluxCaseTree', async ([_, primary, nonPrimary]) => {
   describe('constructor()', async () => {
     let merkluxCase
     it('should assign the original root edge and the target root edge', async () => {
-      merkluxCase = await MerkluxCaseTree.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
       assert.ok('deployed successfully')
     })
     it('should set its initial status as OPENED', async () => {
-      merkluxCase = await MerkluxCaseTree.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
       assert.equal((await merkluxCase.status()).toNumber(), Status.OPENED)
     })
   })
@@ -75,11 +75,11 @@ contract('MerkluxCaseTree', async ([_, primary, nonPrimary]) => {
 
     before('prepare', async () => {
       let rootValueOfOriginalState = originalRootEdge[2]
-      dataToCommit = await getNodeRecursively(snapshotTree, rootValueOfOriginalState)
+      dataToCommit = await getDataToCommit(snapshotTree, rootValueOfOriginalState)
     })
 
-    beforeEach('Use a newly deployed MerkluxCaseTree for every test', async () => {
-      merkluxCase = await MerkluxCaseTree.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+    beforeEach('Use a newly deployed MerkluxCase for every test', async () => {
+      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
     })
 
     describe('commitNode()', async () => {
@@ -237,7 +237,7 @@ contract('MerkluxCaseTree', async ([_, primary, nonPrimary]) => {
   })
 })
 
-const getNodeRecursively = async function (tree, hash) {
+const getDataToCommit = async function (tree, hash) {
   let result = {
     values: [],
     nodes: []
@@ -253,12 +253,12 @@ const getNodeRecursively = async function (tree, hash) {
   } else {
     // when if it is a branch node, push the node and repeat recursively
     result.nodes.push([hash, ...response])
-    let resultFromFirstChild = await getNodeRecursively(tree, response[2])
+    let resultFromFirstChild = await getDataToCommit(tree, response[2])
     result.values = [...result.values, ...resultFromFirstChild.values]
     result.nodes = [...result.nodes, ...resultFromFirstChild.nodes]
 
     if (response[5] != response[2]) {
-      let resultFromSecondChild = await getNodeRecursively(tree, response[5])
+      let resultFromSecondChild = await getDataToCommit(tree, response[5])
       result.values = [...result.values, ...resultFromSecondChild.values]
       result.nodes = [...result.nodes, ...resultFromSecondChild.nodes]
     }
