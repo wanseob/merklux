@@ -1,6 +1,6 @@
 {
   "name": "merklux",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A state machine for child chain to manage the state transition with a merkleized unidirectional data flow",
   "directories": {
     "test": "test"
