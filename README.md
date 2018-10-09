@@ -121,10 +121,10 @@ npm run test
       await caseOnRootChain.insert('key3', 'val3', { from: primary })
       await caseOnRootChain.insert('key4', 'val4', { from: primary })
     
-      // try to proof
+      // try proof
       await merkluxCase.proof({ from: primary })
      
-      // check it changes its status as SUCCESS
+      // The status of the case is now SUCCESS
       assert.equal(
         (await merkluxCase.status()).toNumber(),
         Status.SUCCESS,
@@ -148,7 +148,7 @@ And he already mentioned that it can be used for verifying evm-based sidechain e
 
 ## Contributors
 
-- [Wanseob Lim](https://github.com/james-lim)
+- [Wanseob Lim](https://github.com/james-lim)<[email@wanseob.com](mailto:email@wanseob.com)>
 
 ## License
 
