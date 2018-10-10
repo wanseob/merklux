@@ -4,7 +4,7 @@ const BigNumber = web3.BigNumber
 const should = chai.use(require('chai-bignumber')(BigNumber)).should()
 
 const MerkluxTree = artifacts.require('MerkluxTree')
-const MerkluxCase= artifacts.require('MerkluxCase')
+const MerkluxCase = artifacts.require('MerkluxCase')
 const { progress } = require('./utils')
 
 const Status = {
@@ -49,11 +49,11 @@ contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
   describe('constructor()', async () => {
     let merkluxCase
     it('should assign the original root edge and the target root edge', async () => {
-      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new({ from: primary })
       assert.ok('deployed successfully')
     })
     it('should set its initial status as OPENED', async () => {
-      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new({ from: primary })
       assert.equal((await merkluxCase.status()).toNumber(), Status.OPENED)
     })
   })
@@ -79,7 +79,9 @@ contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
     })
 
     beforeEach('Use a newly deployed MerkluxCase for every test', async () => {
-      merkluxCase = await MerkluxCase.new(...originalRootEdge, ...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new({ from: primary })
+      await merkluxCase.commitOriginalEdge(...originalRootEdge, { from: primary })
+      await merkluxCase.commitTargetEdge(...targetRootEdge, { from: primary })
     })
 
     describe('commitNode()', async () => {

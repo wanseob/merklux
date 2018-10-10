@@ -25,24 +25,31 @@ contract MerkluxCase is MerkluxTree {
     D.Edge targetRootEdge;
     bytes32 targetRoot;
 
-    constructor(
+    constructor() public MerkluxTree() Secondary() {
+        // Init status
+        status = Status.OPENED;
+    }
+
+    function commitOriginalEdge(
         uint _originalLabelLength,
         bytes32 _originalLabel,
-        bytes32 _originalValue,
-        uint _targetLabelLength,
-        bytes32 _targetLabel,
-        bytes32 _targetValue
-    ) public MerkluxTree() {
+        bytes32 _originalValue
+    ) public onlyFor(Status.OPENED) onlyPrimary() {
         // Init original root edge
         originalRootEdge.label = D.Label(_originalLabel, _originalLabelLength);
         originalRootEdge.node = _originalValue;
         originalRoot = edgeHash(originalRootEdge);
+    }
+
+    function commitTargetEdge(
+        uint _targetLabelLength,
+        bytes32 _targetLabel,
+        bytes32 _targetValue
+    ) public onlyFor(Status.OPENED) onlyPrimary() {
         // Init target root edge
         targetRootEdge.label = D.Label(_targetLabel, _targetLabelLength);
         targetRootEdge.node = _targetValue;
         targetRoot = edgeHash(targetRootEdge);
-        // Init status
-        status = Status.OPENED;
     }
 
     function insert(bytes key, bytes value) public onlyFor(Status.ONGOING) onlyPrimary {
