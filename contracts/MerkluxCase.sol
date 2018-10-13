@@ -25,12 +25,14 @@ contract MerkluxCase is MerkluxTree {
     D.Edge targetRootEdge;
     bytes32 targetRoot;
 
-    constructor() public MerkluxTree() Secondary() {
+    constructor(bytes32 _originalRootHash, bytes32 _targetRootHash) public MerkluxTree() Secondary() {
         // Init status
         status = Status.OPENED;
+        originalRoot = _originalRootHash;
+        targetRoot = _targetRootHash;
     }
 
-    function commitOriginalEdge(
+    function commitOriginalRootEdge(
         uint _originalLabelLength,
         bytes32 _originalLabel,
         bytes32 _originalValue
@@ -38,18 +40,7 @@ contract MerkluxCase is MerkluxTree {
         // Init original root edge
         originalRootEdge.label = D.Label(_originalLabel, _originalLabelLength);
         originalRootEdge.node = _originalValue;
-        originalRoot = edgeHash(originalRootEdge);
-    }
-
-    function commitTargetEdge(
-        uint _targetLabelLength,
-        bytes32 _targetLabel,
-        bytes32 _targetValue
-    ) public onlyFor(Status.OPENED) onlyPrimary() {
-        // Init target root edge
-        targetRootEdge.label = D.Label(_targetLabel, _targetLabelLength);
-        targetRootEdge.node = _targetValue;
-        targetRoot = edgeHash(targetRootEdge);
+        require(originalRoot == edgeHash(originalRootEdge));
     }
 
     function insert(bytes key, bytes value) public onlyFor(Status.ONGOING) onlyPrimary {
@@ -92,9 +83,7 @@ contract MerkluxCase is MerkluxTree {
     }
 
     function proof() public onlyFor(Status.ONGOING) onlyPrimary {
-        require(targetRootEdge.node == rootEdge.node);
-        require(targetRootEdge.label.length == rootEdge.label.length);
-        require(targetRootEdge.label.data == rootEdge.label.data);
+        require(targetRoot == edgeHash(rootEdge));
         require(_verifyEdge(rootEdge));
         _changeStatus(Status.SUCCESS);
     }

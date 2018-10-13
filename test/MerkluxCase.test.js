@@ -15,8 +15,9 @@ const Status = {
 }
 
 contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
+  let originalRootHash
+  let targetRootHash
   let originalRootEdge
-  let targetRootEdge
   let snapshotTree
   let testNode1
   let testNode2
@@ -26,11 +27,13 @@ contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
     await plasmaTree.insert('key1', 'val1', { from: primary })
     await plasmaTree.insert('key2', 'val2', { from: primary })
     originalRootEdge = await plasmaTree.getRootEdge()
+    originalRootHash = await plasmaTree.getRootHash()
 
     // Get the target root edge
     await plasmaTree.insert('key3', 'val3', { from: primary })
     await plasmaTree.insert('key4', 'val4', { from: primary })
-    targetRootEdge = await plasmaTree.getRootEdge()
+    // targetRootEdge = await plasmaTree.getRootEdge()//TODO DELETE
+    targetRootHash = await plasmaTree.getRootHash()
 
     // Get the target root edge
     await plasmaTree.insert('key5', 'val5', { from: primary })
@@ -49,11 +52,11 @@ contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
   describe('constructor()', async () => {
     let merkluxCase
     it('should assign the original root edge and the target root edge', async () => {
-      merkluxCase = await MerkluxCase.new({ from: primary })
+      merkluxCase = await MerkluxCase.new(originalRootHash, targetRootHash, { from: primary })
       assert.ok('deployed successfully')
     })
     it('should set its initial status as OPENED', async () => {
-      merkluxCase = await MerkluxCase.new({ from: primary })
+      merkluxCase = await MerkluxCase.new(originalRootHash, targetRootHash, { from: primary })
       assert.equal((await merkluxCase.status()).toNumber(), Status.OPENED)
     })
   })
@@ -79,13 +82,12 @@ contract('MerkluxCase', async ([_, primary, nonPrimary]) => {
     })
 
     beforeEach('Use a newly deployed MerkluxCase for every test', async () => {
-      merkluxCase = await MerkluxCase.new({ from: primary })
-      await merkluxCase.commitOriginalEdge(...originalRootEdge, { from: primary })
-      await merkluxCase.commitTargetEdge(...targetRootEdge, { from: primary })
+      merkluxCase = await MerkluxCase.new(originalRootHash, targetRootHash, { from: primary })
+      await merkluxCase.commitOriginalRootEdge(...originalRootEdge, { from: primary })
     })
 
     describe('commitNode()', async () => {
-      it('should be called only when the case is in OPENED status', async () => {
+      it('should be called only when the case is in the OPENED status', async () => {
         await commitNodes(dataToCommit.nodes)
         assert.ok('successfully committed nodes')
       })
