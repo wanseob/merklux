@@ -3,32 +3,38 @@ pragma solidity ^0.4.24;
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import {Reducer, Block, Store, Transition} from "./Types.sol";
+import "solidity-rlp/contracts/RLPReader.sol";
+import "./MerkluxStore.sol";
+import "./MerkluxReducer.sol";
+import {Block, Transition} from "./Types.sol";
 
 
 /**
  * @title Merklux
- * @dev Merklux contract only has the write permission on the MerkluxStore
+ * @dev Merklux is a state management smart contract to control the state with a
+ * unidirectional data flow. It can be used for state verifications accross evm
+ * based block chains.
  */
 contract Merklux is Secondary {
 
     using Block for Block.Object;
-    using Store for Store.Object;
     using Transition for Transition.Object;
-
     using SafeMath for uint256;
     using ECDSA for bytes32;
+    using RLPReader for RLPReader.RLPItem;
+    using RLPReader for bytes;
 
+    // Every action dispatches increment the height
     uint256 public height;
-    string[] storeList;
+    bytes32[] storeList;
     bytes32[] reducerList;
 
-    mapping(string => bytes32[]) references;
+    mapping(bytes32 => bytes32[]) references;
 
     Transition.Object[] transitionsOfCurrentBlock;
 
-    mapping(bytes32 => Reducer) private reducers;
-    mapping(string => Store.Object) private stores;
+    mapping(bytes32 => MerkluxReducer) private reducers;
+    mapping(bytes32 => MerkluxStore) private stores;
 
     bytes32[] blocks;
 
@@ -37,9 +43,9 @@ contract Merklux is Secondary {
         uint height;
         bytes32 previousBlock;
         bytes32[] reducerList;
-        string[] storeList;
+        bytes32[] storeList;
+        mapping(bytes32 => bytes32[]) references;
         Transition.Object[] transitions;
-        mapping(string => bytes32[]) references;
     }
 
     BlockData lastBlockData;
@@ -49,18 +55,22 @@ contract Merklux is Secondary {
     constructor () public Secondary() {
     }
 
-    function newStore(string _name) public onlyPrimary {// TODO committee
-        // stores can not be overwritten
-        require(!stores[_name].initialized());
+    function newStore(bytes32 _store) public onlyPrimary {// TODO committee
+        // key cannot be empty
+        require(_store != bytes32(0));
 
-        // name cannot be empty
-        require(bytes(_name).length != 0);
+        MerkluxStore store = stores[_store];
+        // stores can not be overwritten
+        require(address(store) == 0);
+
+        // Deploy and assign a new merklux tree
+        store = new MerkluxStore();
 
         // add store name to the list to use as a key
-        storeList.push(_name);
+        storeList.push(_store);
 
         // record transition
-        _pushTransition(Merklux.newStoreTransition(_name));
+        _newStoreTransition(_store);
     }
 
     /**
@@ -70,38 +80,37 @@ contract Merklux is Secondary {
      * @param _action Name of the action for the reducer to handle
      * @param _code Compiled reducer code to deploy
      */
-    function setReducer(string _store, string _action, bytes _code) public onlyPrimary {// TODO committee
+    function setReducer(bytes32 _store, string _action, bytes _code) public onlyPrimary {// TODO committee
+        require(bytes(_action).length != 0);
+        require(_store != bytes32(0));
+
+        MerkluxStore store = stores[_store];
         // stores should be initialized
-        require(stores[_store].initialized());
+        require(address(store) != 0);
 
         // only create a new reducer when it does not exist
         bytes32 reducerKey = keccak256(_code);
-        if (reducers[reducerKey] == bytes32(0)) {
-            address memory reducerAddress;
+        if (reducers[reducerKey] == address(0)) {
+            address reducerAddress;
             assembly {
                 reducerAddress := create(0, add(_code, 0x20), mload(_code))
-                jumpi(invalidJumpLabel, iszero(extcodesize(reducerAddress)))
+            //TODO jumpi discouraged
+            //                jumpi(invalidJumpLabel, iszero(extcodesize(reducerAddress)))
             }
-            reducers[reducerKey] = Reducer(reducerAddress);
+            reducers[reducerKey] = MerkluxReducer(reducerAddress);
             reducerList.push(reducerKey);
-        }
 
+        }
         // Add the action into the actions list
-        if (stores[_store].allowedReducers[_action] == bytes32(0)) {
-            stores[_store].actions.push(_action);
+        if (store.getReducer(_action) == bytes32(0)) {
+            store.setReducer(_action, reducerKey);
         }
-
-        // Add the reducer into the allowed reducer list of the store
-        stores[_store].allowedReducers[_action] = reducers[reducerKey];
-
 
         // Record transition
-        _pushTransition(
-            Merklux.setReducerTransition(
-                _store,
-                _action,
-                _code
-            )
+        _setReducerTransition(
+            _store,
+            _action,
+            _code
         );
     }
 
@@ -112,45 +121,45 @@ contract Merklux is Secondary {
     * @param _action The name of the action
     * @param _data RLP encoded data set
     */
-    function dispatch(string _store, string _action, bytes _data) external returns (bytes32) {
+    function dispatch(bytes32 _store, string _action, bytes _data) external returns (bytes32) {
+        MerkluxStore store = stores[_store];
         // stores should be initialized
-        require(stores[_store].initialized);
+        require(address(store) != address(0));
 
         // It should have a reducer to handle the _action
-        bytes32 memory reducerKey = stores[_store].allowedReducers[_action];
+        bytes32 reducerKey = store.getReducer(_action);
         require(reducerKey != bytes32(0));
 
         // The reducer also should exist
         require(reducers[reducerKey] != address(0));
 
-        // Get key, value pair to update
-        bytes[] memory keys;
-        bytes[] memory values;
+        bytes memory rlpEncodedKeys;
+        bytes memory rlpEncodedValues;
         bytes32[] memory referredKeys;
-        (keys, values, referredKeys) = reducers[reducerKey].reduce(stores[_store].tree, msg.sender, _data);
+        (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducers[reducerKey].reduce(store, msg.sender, _data);
 
-        //keys and values should exist as pairs
+        RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
+        RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
         require(keys.length == values.length);
-
-        // update tree if there's a new key-value pair to set
-        for (uint i = 0; i < keys.length; i++) {
-            stores[_store].tree.insert(keys[i], values[i]);
+        for (uint i = 0; i < keys.length; i ++) {
+            store.insert(keys[i].toBytes(), values[i].toBytes());
         }
+
         // set references
         _addReferences(_store, referredKeys);
 
-        // Record transition
-        _pushTransition(
-            Merklux.dispatchTransition(
-                _store,
-                _action,
-                _data
-            )
+        // record transition
+        _dispatchTransition(
+            _store,
+            _action,
+            _data
         );
     }
 
     // TODO set modifier to allow only the pseudo-randomly selected snapshot submitter
     function seal() external {
+        // TODO setup requirements
+
         Block.Object memory newBlock;
         newBlock.sealer = msg.sender;
         newBlock.height = height;
@@ -159,23 +168,24 @@ contract Merklux is Secondary {
 
         newBlock.stores = new bytes32[](storeList.length);
         for (uint i = 0; i < storeList.length; i++) {
-            newBlock.stores[i] = stores[storeList[i]].getStoreHash();
+            MerkluxStore store = stores[storeList[i]];
+            newBlock.stores[i] = store.getRootHash();
+            lastBlockData.references[storeList[i]] = references[storeList[i]];
         }
 
         newBlock.transitions = new bytes32[](transitionsOfCurrentBlock.length);
         for (uint j = 0; j < transitionsOfCurrentBlock.length; j++) {
-            newBlock.transitions[i] = transitionsOfCurrentBlock[i].getTransitionHash();
+            newBlock.transitions[j] = transitionsOfCurrentBlock[j].getTransitionHash();
         }
 
         // save last block data for convenient use.
         // It is unnecessary when we have a client to get the previous block data easily
-        lastBlockData.sealer = newBlock.sender;
-        lastBlockData.height = newBlock.previousBlockHash;
+        lastBlockData.sealer = newBlock.sealer;
+        lastBlockData.height = newBlock.height;
         lastBlockData.previousBlock = newBlock.previousBlockHash;
         lastBlockData.reducerList = reducerList;
         lastBlockData.storeList = storeList;
         lastBlockData.transitions = transitionsOfCurrentBlock;
-        lastBlockData.references = references;
 
         // clean transitions
         _clearTransitionList();
@@ -192,7 +202,7 @@ contract Merklux is Secondary {
         uint256 _height,
         bytes32 _previousHash,
         bytes32[] memory _reducers,
-        string[] memory _stores,
+        bytes32[] memory _stores,
         bytes32[] memory _transitions
     ) {
         _sealer = lastBlockData.sealer;
@@ -207,7 +217,7 @@ contract Merklux is Secondary {
         }
     }
 
-    function _addReferences(string _store, bytes32[] memory _keys) private {
+    function _addReferences(bytes32 _store, bytes32[] memory _keys) private {
         bytes32[] storage keys = references[_store];
         for (uint i = 0; i < _keys.length; i ++) {
             for (uint j = 0; j < keys.length; j++) {
@@ -215,8 +225,43 @@ contract Merklux is Secondary {
                     return;
                 }
             }
-            keys.push(_key);
+            keys.push(_keys[i]);
         }
+    }
+
+    function _setReducerTransition(
+        bytes32 _store,
+        string _action,
+        bytes _code
+    ) private {
+        Transition.Object memory transition;
+        transition.sort = Transition.Type.SET_REDUCER;
+        transition.store = _store;
+        transition.action = _action;
+        transition.data = _code;
+        _pushTransition(transition);
+    }
+
+    function _newStoreTransition(
+        bytes32 _store
+    ) private {
+        Transition.Object memory transition;
+        transition.sort = Transition.Type.NEW_STORE;
+        transition.store = _store;
+        _pushTransition(transition);
+    }
+
+    function _dispatchTransition(
+        bytes32 _store,
+        string _action,
+        bytes _data
+    ) private {
+        Transition.Object memory transition;
+        transition.sort = Transition.Type.DISPATCH;
+        transition.store = _store;
+        transition.action = _action;
+        transition.data = _data;
+        _pushTransition(transition);
     }
 
     function _pushTransition(Transition.Object transition) private {
