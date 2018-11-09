@@ -1,4 +1,4 @@
-pragma solidity ^0.4.0;
+pragma solidity ^0.4.24;
 
 import "./MerkluxStore.sol";
 import "solidity-rlp/contracts/RLPReader.sol";
@@ -7,6 +7,7 @@ import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 contract MerkluxReducer {
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for bytes;
+    using RLPEncode for bytes[];
 
 
     /**
