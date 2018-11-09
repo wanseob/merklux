@@ -1,110 +1,71 @@
 pragma solidity ^0.4.24;
 
+import {PatriciaTree} from "solidity-patricia-tree/contracts/tree.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
-import "./MerkluxTree.sol";
+import "openzeppelin-solidity/contracts/access/Roles.sol";
+import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 
+
+/**
+ * @title MerkluxTree data structure for
+ *
+ */
 contract MerkluxStore is Secondary {
-    struct Namespace {
-        string name;
-        address[] allowedReducers;
-        MerkluxTree tree;
+    using PatriciaTree for PatriciaTree.Tree;
+    using Roles for Roles.Role;
+    string constant REDUCER = "&";
+
+    PatriciaTree.Tree tree;
+
+    constructor() public Secondary() {
     }
 
-    Namespace[] public namespaces;
-
-    function createNamespace(string _name) public {
-        // If there already exists a same namespace, revert the transaction
-        for (uint i = 0; i < namespaces.length; i++) {
-            require(!_compareString(_name, namespaces[i].name));
+    function insert(bytes key, bytes value) public onlyPrimary {
+        if (key.length > 1) {
+            // Reducer cannot be overwritten through this function
+            require(!(key[0] == byte(0) && key[1] == byte(38)));
         }
-        namespaces.push(Namespace({
-            name : _name,
-            allowedReducers : new address[](0),
-            tree : new MerkluxTree()
-            }));
+        tree.insert(key, value);
     }
 
-    function deleteNamespace(string _name) public {
-        var (exist, index) = _findNamespaceIndex(_name);
-        if (exist) {
-            for (uint i = index; i < namespaces.length; i++) {
-                if (i + 1 < namespaces.length) {
-                    namespaces[i] = namespaces[i + 1];
-                }
+    function setReducer(string _action, bytes32 _reducerHash) public onlyPrimary {
+        tree.insert(_getReducerKey(_action), abi.encodePacked(_reducerHash));
+    }
+
+    function getReducer(string _action) public view returns (bytes32) {
+        bytes32 _reducerHash;
+        bytes memory _storedValue = tree.get(_getReducerKey(_action));
+
+        if (_storedValue.length == 32) {
+            for (uint i = 0; i < 32; i++) {
+                _reducerHash |= bytes32(_storedValue[i] & 0xFF) >> (i * 8);
             }
-            delete namespaces[namespaces.length - 1];
-            namespaces.length--;
+            return _reducerHash;
         }
+        else return bytes32(0);
     }
 
-    function allowReducer(string _namespace, address _reducer) public {
-        var (exist, index) = _findNamespaceIndex(_namespace);
-        if (exist) {
-            for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
-                require(_reducer != namespaces[index].allowedReducers[i]);
-            }
-            namespaces[index].allowedReducers.push(_reducer);
-        }
+    function get(bytes key) public view returns (bytes) {
+        return tree.get(key);
     }
 
-    function denyReducer(string _namespace, address _reducer) public {
-        var (exist, index) = _findNamespaceIndex(_namespace);
-        if (exist) {
-            uint reducerIndex = 0;
-            for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
-                if (_reducer == namespaces[index].allowedReducers[i]) {
-                    for (uint j = reducerIndex; j < namespaces[index].allowedReducers.length; j++) {
-                        if (reducerIndex + 1 < namespaces[index].allowedReducers.length) {
-                            namespaces[index].allowedReducers[reducerIndex] = namespaces[index].allowedReducers[reducerIndex + 1];
-                        }
-                    }
-                    delete namespaces[index].allowedReducers[namespaces[index].allowedReducers.length - 1];
-                    namespaces[index].allowedReducers.length--;
-                }
-            }
-        }
+    function getLeafValue(bytes32 valueHash) public view returns (bytes) {
+        return tree.getValue(valueHash);
     }
 
-    function getAllowedReducers(string _namespace) public view returns (address[] memory reducers) {
-        var (exist, index) = _findNamespaceIndex(_namespace);
-        if (exist) {
-            return namespaces[index].allowedReducers;
-        }
+    function getRootHash() public view returns (bytes32) {
+        return tree.getRootHash();
     }
 
-    function isAllowed(string _namespace, address _reducer) public view returns (bool){
-        var (exist, index) = _findNamespaceIndex(_namespace);
-        if (exist) {
-            for (uint i = 0; i < namespaces[index].allowedReducers.length; i++) {
-                if (_reducer == namespaces[index].allowedReducers[i]) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    function totalNamespace() public view returns (uint) {
-        return namespaces.length;
-    }
-
-    function getNamespace(uint index) public view returns (string) {
-        return namespaces[index].name;
-    }
-
-    function _findNamespaceIndex(string _name) private view returns (bool exist, uint index) {
-        for (uint i = 0; i < namespaces.length; i++) {
-            if (_compareString(_name, namespaces[i].name)) {
-                index = i;
-                exist = true;
-                return;
-            }
-        }
-        exist = false;
-        return;
-    }
-
-    function _compareString(string a, string b) private pure returns (bool) {
-        return keccak256(bytes(a)) == keccak256(bytes(b));
+    /**
+     * @dev
+     * @return _reducerKey always starts with 0x0026
+     */
+    function _getReducerKey(string _action) private pure returns (bytes memory _reducerKey) {
+        bytes memory _a = bytes(_action);
+        _reducerKey = new bytes(_a.length + 2);
+        _reducerKey[0] = byte(0);
+        _reducerKey[1] = byte(38);
+        for (uint i = 2; i < _reducerKey.length; i++) _reducerKey[i] = _a[i - 2];
     }
 }
