@@ -3,7 +3,7 @@ const assert = chai.assert
 const BigNumber = web3.BigNumber
 const should = chai.use(require('chai-bignumber')(BigNumber)).should()
 
-const MerkluxTree = artifacts.require('MerkluxStore')
+const MerkluxStore = artifacts.require('MerkluxStore')
 const { toNodeObject, progress } = require('./utils')
 
 const ZERO = '0x0000000000000000000000000000000000000000000000000000000000000000'

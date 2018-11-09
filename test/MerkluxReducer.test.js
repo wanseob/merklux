@@ -3,7 +3,7 @@ const assert = chai.assert
 const BigNumber = web3.BigNumber
 const should = chai.use(require('chai-bignumber')(BigNumber)).should()
 const MerkluxReducer = artifacts.require('MerkluxReducer')
-const MerkluxTree = artifacts.require('MerkluxTree')
+const MerkluxStore = artifacts.require('MerkluxStore')
 const BalanceIncrease = artifacts.require('BalanceIncrease')
 const rlp = require('rlp')
 
@@ -14,7 +14,7 @@ const rlpEncode = (param) => {
 }
 contract('MerkluxReducer', async ([_, primary, nonPrimary]) => {
   it('should update balance correctly', async () => {
-    let tree = await MerkluxTree.new({ from: primary })
+    let tree = await MerkluxStore.new({ from: primary })
     let reducer = await BalanceIncrease.new()
     await tree.insert(rlpEncode(primary), rlpEncode(10), { from: primary })
     let balance = await tree.get(rlpEncode(primary))
