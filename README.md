@@ -28,7 +28,8 @@ For more detail information check [https://ethresear.ch/t/merklux-plasma-plant](
 1. Set your smart contract development environment (We use truffle as an example)
 ```bash
 npm install -g truffle
-npm install -g ganache
+npm install -g ganache-cli
+
 mkdir your-plasma-dapp && cd your-plasma-dapp
 truffle unbox blueprint
 npm i merklux@next
@@ -64,12 +65,48 @@ contract YourReducer is MerkluxReducer {
 
 const Merklux = artifacts.require('Merklux')
 const YourReducer = artifacts.require('YourReducer')
-
+const STORE_KEY = web3.sha3('namespace', { encoding: 'hex' })
 module.exports = function (deployer) {
-  deployer.deploy(Merklux).then(()=>{
-    Merklux.setReducer(web3.sha3('namespace', { encoding: 'hex' }), YourReducer.bytecode)
+  deployer.deploy(Merklux).then(async (merklux) => {
+    await merklux.newStore(STORE_KEY)
+    await merklux.setReducer(
+      STORE_KEY, // namespace
+      'actionName', // action name
+      YourReducer.bytecode // reducer's bytecode
+    )
   })
 }
+```
+
+4. Test your application
+```javascript
+const Merklux = artifacts.require('Merklux')
+const rlp = require('rlp')
+
+const STORE_KEY = web3.sha3('namespace', { encoding: 'hex' })
+const rlpEncode = (data) => '0x' + rlp.encode(data).toString('hex')
+
+contract('Merklux', async ([deployer, ...accounts]) => {
+  let merklux
+  before(async () => {
+    merklux = await Merklux.deployed()
+  })
+  it('should update its value by the reducer information', async () => {
+    const VALUE_TO_INCREASE = 8
+    await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: deployer })
+    let updatedValue = await merklux.get(STORE_KEY, deployer)
+    assert.equal(web3.toDecimal(updatedValue), VALUE_TO_INCREASE)
+  })
+})
+```
+
+5. Migrate & test
+```bash
+$ truffle develop
+> migrate
+...
+> test
+...
 ```
 
 Done! Now you wrote a verifiable general state plasma dApp.
