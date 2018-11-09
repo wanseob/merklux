@@ -69,6 +69,9 @@ contract Merklux is Secondary {
         // add store name to the list to use as a key
         storeList.push(_store);
 
+        // Assign deployed store to the map
+        stores[_store] = store;
+
         // record transition
         _newStoreTransition(_store);
     }
@@ -94,8 +97,6 @@ contract Merklux is Secondary {
             address reducerAddress;
             assembly {
                 reducerAddress := create(0, add(_code, 0x20), mload(_code))
-            //TODO jumpi discouraged
-            //                jumpi(invalidJumpLabel, iszero(extcodesize(reducerAddress)))
             }
             reducers[reducerKey] = MerkluxReducer(reducerAddress);
             reducerList.push(reducerKey);
@@ -154,6 +155,11 @@ contract Merklux is Secondary {
             _action,
             _data
         );
+    }
+
+    function get(bytes32 _store, bytes _key) public view returns (bytes) {
+        MerkluxStore store = stores[_store];
+        return store.get(_key);
     }
 
     // TODO set modifier to allow only the pseudo-randomly selected snapshot submitter
