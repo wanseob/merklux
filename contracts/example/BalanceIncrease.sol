@@ -17,7 +17,7 @@ contract BalanceIncrease is MerkluxReducer {
         // Decode data with RLP decoder
         uint amount = _data.toRlpItem().toUint();
         // Check current state
-        bytes memory _senderKey = encodeAddress(_from);
+        bytes memory _senderKey = abi.encodePacked(_from);
         uint currentAmount = _tree.get(_senderKey).toRlpItem().toUint();
 
         // Prepare arrays to return
@@ -25,7 +25,7 @@ contract BalanceIncrease is MerkluxReducer {
         bytes[] memory encodedValues = new bytes[](1);
 
         // Encode key-value pairs
-        encodedKeys[0] = encodeAddress(_from);
+        encodedKeys[0] = encodeBytes(_senderKey);
         encodedValues[0] = encodeUint(amount + currentAmount);
 
         // Encode list
