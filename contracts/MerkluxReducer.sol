@@ -15,9 +15,9 @@ contract MerkluxReducer {
     * @param _tree The merkle tree to get & set states
     * @param _from The address of the transaction caller
     * @param _data RLP encoded data set for its reducer
-    * @return rlp encoded keys to update
-    * @return rlp encoded values for the keys. It has same length with the array of keys.
-    * @return references Array of hashes of the keys in the merkle tree which are referred to return the key-value pairs.
+    * @return encodedKeys rlp encoded keys to update
+    * @return encodedValues rlp encoded values for the keys. It has same length with the array of keys.
+    * @return referredNodes Hash values of the referred nodes during its reduction process.
     It is possible to process a merkle proof with a minimum number of nodes by submitting only the referred nodes.
     */
     function reduce(
@@ -25,9 +25,9 @@ contract MerkluxReducer {
         address _from,
         bytes _data
     ) public view returns (
-        bytes keys, // rlp encoded key values
-        bytes values, // rlp encoded key valuesTODO return as bytes[] after the solidity 0.5.0
-        bytes32[] references
+        bytes encodedKeys, // rlp encoded key values
+        bytes encodedValues, // rlp encoded key valuesTODO return as bytes[] after the solidity 0.5.0
+        bytes32[] referredNodes
     );
 
     /**
