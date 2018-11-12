@@ -273,7 +273,7 @@ contract Merklux is Secondary {
     function _pushTransition(Transition.Object transition) private {
         // TODO require(stake > estimated defence cost);
         transitionsOfCurrentBlock.push(transition);
-        height.add(1);
+        height = height.add(1);
     }
 
     function _clearTransitionList() private {
