@@ -18,6 +18,7 @@ import {Block, Transition} from "./Types.sol";
 contract Merklux is Secondary {
 
     using Block for Block.Object;
+    using Block for Block.Data;
     using Transition for Transition.Object;
     using SafeMath for uint256;
     using ECDSA for bytes32;
@@ -27,39 +28,93 @@ contract Merklux is Secondary {
     // Every action dispatches increment the height
     uint256 public height;
     bytes32[] storeList;
-    bytes32[] reducerList;
-
-    mapping(bytes32 => bytes32[]) references;
-
-    Transition.Object[] transitionsOfCurrentBlock;
-
     mapping(bytes32 => MerkluxReducer) private reducers;
     mapping(bytes32 => MerkluxStore) private stores;
 
-    bytes32[] blocks;
 
-    struct BlockData {
-        address sealer;
-        uint height;
-        bytes32 previousBlock;
-        bytes32[] reducerList;
-        bytes32[] storeList;
-        mapping(bytes32 => bytes32[]) references;
-        Transition.Object[] transitions;
-    }
+    //    mapping(bytes32 => bytes32[]) references;
+    //
+    //    Transition.Object[] transitionsOfCurrentBlock;
 
-    BlockData lastBlockData;
+
+    bytes32[] chain;
+    mapping(bytes32 => Block.Object) blocks;
+    mapping(uint256 => Block.Data) blockData;
 
     event Dispatched(uint _height, bytes32 _transactionDataHash);
+    event Sealed(bytes32 _blockHash, bytes _signature);
 
     constructor () public Secondary() {
+        // Set null value as the genesis block
+        chain.push(bytes32(0));
     }
 
-    function newStore(bytes32 _store) public onlyPrimary {// TODO committee
-        // key cannot be empty
-        require(_store != bytes32(0));
 
-        MerkluxStore store = stores[_store];
+    /**
+    * @dev This is the only way to updates the merkle trees
+    *
+    * @param _storeKey The hashed key of a store to update
+    * @param _action The name of the action
+    * @param _data RLP encoded data set
+    */
+    function dispatch(bytes32 _storeKey, string _action, bytes _data) external {
+        MerkluxStore store = stores[_storeKey];
+        // stores should be initialized
+        require(address(store) != address(0));
+
+        MerkluxReducer reducer = getReducer(store.getReducerKey(_action));
+
+        bytes memory rlpEncodedKeys;
+        bytes memory rlpEncodedValues;
+        bytes32[] memory referredKeys;
+        (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducer.reduce(store, msg.sender, _data);
+
+        // record referred keys during dispatching
+        _recordReferredNodes(_storeKey, referredKeys);
+
+        RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
+        RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
+        require(keys.length == values.length);
+
+        referredKeys = new bytes32[](keys.length);
+
+        for (uint i = 0; i < keys.length; i++) {
+            store.insert(keys[i].toBytes(), values[i].toBytes());
+            referredKeys[i] = keccak256(keys[i].toBytes());
+        }
+
+        // record inserted keys
+        _recordReferredNodes(_storeKey, referredKeys);
+
+        // update candidate
+        _recordStore(_storeKey, store.getRootHash());
+
+        // record transition
+        _recordTransition(
+            Transition.Type.DISPATCH,
+            height,
+            _storeKey,
+            _action,
+            _data
+        );
+    }
+
+    // TODO set modifier to allow only the pseudo-randomly selected snapshot submitter
+    function seal(bytes _signature) external {
+        Block.Object memory candidate = _getBlockCandidate(msg.sender);
+        candidate.signature = _signature;
+        // Check signature
+        require(candidate.isSealed());
+        bytes32 blockHash = candidate.getBlockHash();
+        chain.push(blockHash);
+        blocks[blockHash] = candidate;
+    }
+
+    function newStore(bytes32 _storeKey) public onlyPrimary {// TODO committee
+        // key cannot be empty
+        require(_storeKey != bytes32(0));
+
+        MerkluxStore store = stores[_storeKey];
         // stores can not be overwritten
         require(address(store) == 0);
 
@@ -67,13 +122,22 @@ contract Merklux is Secondary {
         store = new MerkluxStore();
 
         // add store name to the list to use as a key
-        storeList.push(_store);
+        storeList.push(_storeKey);
+
+        // add the store key to the block data's store list
+        _recordNewStore(_storeKey);
 
         // Assign deployed store to the map
-        stores[_store] = store;
+        stores[_storeKey] = store;
 
         // record transition
-        _newStoreTransition(_store);
+        _recordTransition(
+            Transition.Type.NEW_STORE,
+            height,
+            _storeKey,
+            "NEW",
+            new bytes(0)
+        );
     }
 
     /**
@@ -99,61 +163,19 @@ contract Merklux is Secondary {
                 reducerAddress := create(0, add(_code, 0x20), mload(_code))
             }
             reducers[reducerKey] = MerkluxReducer(reducerAddress);
-            reducerList.push(reducerKey);
-
         }
         // Add the action into the actions list
-        if (store.getReducer(_action) == bytes32(0)) {
+        if (store.getReducerKey(_action) == bytes32(0)) {
             store.setReducer(_action, reducerKey);
         }
 
         // Record transition
-        _setReducerTransition(
+        _recordTransition(
+            Transition.Type.SET_REDUCER,
+            height,
             _store,
             _action,
             _code
-        );
-    }
-
-    /**
-    * @dev This is the only way to updates the merkle trees
-    *
-    * @param _store The name of the store to update
-    * @param _action The name of the action
-    * @param _data RLP encoded data set
-    */
-    function dispatch(bytes32 _store, string _action, bytes _data) external returns (bytes32) {
-        MerkluxStore store = stores[_store];
-        // stores should be initialized
-        require(address(store) != address(0));
-
-        // It should have a reducer to handle the _action
-        bytes32 reducerKey = store.getReducer(_action);
-        require(reducerKey != bytes32(0));
-
-        // The reducer also should exist
-        require(reducers[reducerKey] != address(0));
-
-        bytes memory rlpEncodedKeys;
-        bytes memory rlpEncodedValues;
-        bytes32[] memory referredKeys;
-        (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducers[reducerKey].reduce(store, msg.sender, _data);
-
-        RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
-        RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
-        require(keys.length == values.length);
-        for (uint i = 0; i < keys.length; i ++) {
-            store.insert(keys[i].toBytes(), values[i].toBytes());
-        }
-
-        // set references
-        _addReferences(_store, referredKeys);
-
-        // record transition
-        _dispatchTransition(
-            _store,
-            _action,
-            _data
         );
     }
 
@@ -162,130 +184,77 @@ contract Merklux is Secondary {
         return store.get(_key);
     }
 
-    // TODO set modifier to allow only the pseudo-randomly selected snapshot submitter
-    function seal() external {
-        // TODO setup requirements
-
-        Block.Object memory newBlock;
-        newBlock.sealer = msg.sender;
-        newBlock.height = height;
-        newBlock.previousBlockHash = blocks[blocks.length - 1];
-        newBlock.reducers = reducerList;
-
-        newBlock.stores = new bytes32[](storeList.length);
-        for (uint i = 0; i < storeList.length; i++) {
-            MerkluxStore store = stores[storeList[i]];
-            newBlock.stores[i] = store.getRootHash();
-            lastBlockData.references[storeList[i]] = references[storeList[i]];
-        }
-
-        newBlock.transitions = new bytes32[](transitionsOfCurrentBlock.length);
-        for (uint j = 0; j < transitionsOfCurrentBlock.length; j++) {
-            newBlock.transitions[j] = transitionsOfCurrentBlock[j].getTransitionHash();
-        }
-
-        // save last block data for convenient use.
-        // It is unnecessary when we have a client to get the previous block data easily
-        lastBlockData.sealer = newBlock.sealer;
-        lastBlockData.height = newBlock.height;
-        lastBlockData.previousBlock = newBlock.previousBlockHash;
-        lastBlockData.reducerList = reducerList;
-        lastBlockData.storeList = storeList;
-        lastBlockData.transitions = transitionsOfCurrentBlock;
-
-        // clean transitions
-        _clearTransitionList();
-
-        // clear references
-        _clearReferences();
-
-        blocks.push(newBlock.getBlockHash());
+    function getBlockHashToSeal() public view returns (bytes32) {
+        return _getBlockCandidate(msg.sender).getBlockHash();
     }
 
-    function getLastBlockData() public view returns (
-        address _sealer,
-        bytes32 _hash,
-        uint256 _height,
-        bytes32 _previousHash,
-        bytes32[] memory _reducers,
-        bytes32[] memory _stores,
-        bytes32[] memory _transitions
-    ) {
-        _sealer = lastBlockData.sealer;
-        _hash = blocks[blocks.length - 1];
-        _height = lastBlockData.height;
-        _previousHash = lastBlockData.previousBlock;
-        _reducers = lastBlockData.reducerList;
-        _stores = lastBlockData.storeList;
-        _transitions = new bytes32[](lastBlockData.transitions.length);
-        for (uint i = 0; i < lastBlockData.transitions.length; i ++) {
-            _transitions[i] = lastBlockData.transitions[i].getTransitionHash();
-        }
+    function getReducer(bytes32 _reducerKey) public view returns (MerkluxReducer) {
+        require(_reducerKey != bytes32(0));
+        // The reducer also should exist
+        require(reducers[_reducerKey] != address(0));
+        return reducers[_reducerKey];
     }
 
-    function _addReferences(bytes32 _store, bytes32[] memory _keys) private {
-        bytes32[] storage keys = references[_store];
+    function _getBlockCandidate(address _sealer) private view returns (Block.Object memory candidate) {
+        Block.Data storage data = _getCurrentBlockData();
+        candidate.height = height;
+        candidate.previousBlock = chain[chain.length - 1];
+        candidate.stores = data.getStoreRoot();
+        candidate.references = data.getReferenceRoot();
+        candidate.transitions = data.getTransitionRoot();
+        candidate.sealer = _sealer;
+        return candidate;
+    }
+
+    function _getCurrentBlockData() private view returns (Block.Data storage) {
+        return blockData[chain.length];
+    }
+
+    function _recordReferredNodes(bytes32 _store, bytes32[] memory _keys) private {
+        Block.Data storage data = _getCurrentBlockData();
+        bytes32[] storage keys = data.references[_store];
+
         for (uint i = 0; i < _keys.length; i ++) {
+            bool exist = false;
             for (uint j = 0; j < keys.length; j++) {
                 if (keys[j] == _keys[i]) {
-                    return;
+                    exist = true;
+                    break;
                 }
             }
-            keys.push(_keys[i]);
+            if (!exist) keys.push(_keys[i]);
         }
     }
 
-    function _setReducerTransition(
-        bytes32 _store,
-        string _action,
-        bytes _code
-    ) private {
-        Transition.Object memory transition;
-        transition.sort = Transition.Type.SET_REDUCER;
-        transition.store = _store;
-        transition.action = _action;
-        transition.data = _code;
-        _pushTransition(transition);
+    function _recordNewStore(bytes32 _store) private {
+        Block.Data storage data = _getCurrentBlockData();
+        data.storeKeys.push(_store);
     }
 
-    function _newStoreTransition(
-        bytes32 _store
-    ) private {
-        Transition.Object memory transition;
-        transition.sort = Transition.Type.NEW_STORE;
-        transition.store = _store;
-        _pushTransition(transition);
+    function _recordStore(bytes32 _store, bytes32 _hash) private {
+        Block.Data storage data = _getCurrentBlockData();
+        data.storeHashes[_store] = _hash;
     }
 
-    function _dispatchTransition(
+    function _recordTransition(
+        Transition.Type _sort,
+        uint256 _height,
         bytes32 _store,
         string _action,
         bytes _data
     ) private {
-        Transition.Object memory transition;
-        transition.sort = Transition.Type.DISPATCH;
-        transition.store = _store;
-        transition.action = _action;
-        transition.data = _data;
-        _pushTransition(transition);
-    }
-
-    function _pushTransition(Transition.Object transition) private {
         // TODO require(stake > estimated defence cost);
-        transitionsOfCurrentBlock.push(transition);
+        Transition.Object memory transition = Transition.Object(
+            msg.sender,
+            _sort,
+            _height,
+            _store,
+            _action,
+            _data
+        );
+        Block.Data storage data = _getCurrentBlockData();
+        data.transitions.push(transition);
+        emit Dispatched(height, transition.getTransitionHash());
         height = height.add(1);
-    }
-
-    function _clearTransitionList() private {
-        for (uint i = 0; i < transitionsOfCurrentBlock.length; i++) {
-            delete transitionsOfCurrentBlock[i];
-        }
-        transitionsOfCurrentBlock.length = 0;
-    }
-
-    function _clearReferences() private {
-        for (uint i = 0; i < storeList.length; i++) {
-            delete references[storeList[i]];
-        }
     }
 }

@@ -1,21 +1,15 @@
 pragma solidity ^0.4.24;
 
-import {PatriciaTree} from "solidity-patricia-tree/contracts/tree.sol";
+
+import {PartialMerkleTree} from "solidity-partial-tree/contracts/tree.sol";
+import {D} from "solidity-partial-tree/contracts/data.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
-import "openzeppelin-solidity/contracts/access/Roles.sol";
-import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 
-
-/**
- * @title MerkluxTree data structure for
- *
- */
-contract MerkluxStore is Secondary {
-    using PatriciaTree for PatriciaTree.Tree;
-    using Roles for Roles.Role;
+contract MerkluxStoreForProof is Secondary {
+    using PartialMerkleTree for PartialMerkleTree.Tree;
     string constant REDUCER = "&";
 
-    PatriciaTree.Tree tree;
+    PartialMerkleTree.Tree tree;
 
     constructor() public Secondary() {
     }
@@ -30,6 +24,10 @@ contract MerkluxStore is Secondary {
 
     function setReducer(string _action, bytes32 _reducerHash) public onlyPrimary {
         tree.insert(_appendPrefix(_action), abi.encodePacked(_reducerHash));
+    }
+
+    function commitBranch(bytes key, bytes value, uint branchMask, bytes32[] siblings) public onlyPrimary {
+        tree.commitBranch(key, value, branchMask, siblings);
     }
 
     function getReducerKey(string _action) public view returns (bytes32) {

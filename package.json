@@ -14,11 +14,13 @@
     "solidity-docgen": "^0.1.0",
     "standard": "^12.0.1",
     "truffle": "^4.1.14",
-    "truffle-hdwallet-provider": "^0.0.5"
+    "truffle-hdwallet-provider": "^0.0.5",
+    "web3": "^1.0.0-beta.36"
   },
   "dependencies": {
     "openzeppelin-solidity": "^2.0.0-rc.2",
-    "solidity-patricia-tree": "^1.0.3",
+    "solidity-partial-tree": "^1.1.0",
+    "solidity-patricia-tree": "^1.1.0",
     "solidity-rlp": "^1.1.0"
   },
   "scripts": {
