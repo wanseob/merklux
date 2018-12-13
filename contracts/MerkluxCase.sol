@@ -31,7 +31,7 @@ contract MerkluxCase {
     mapping(uint => bool) todos;
 
     uint256 public height;
-    mapping(bytes32 => MerkluxStoreForProof) stores;
+    MerkluxStoreForProof storeForProof;
     mapping(uint256 => Transition.Object) transitions;
 
     Block.Object originalBlock;
@@ -94,7 +94,7 @@ contract MerkluxCase {
     function commitOriginalBlock(
         bytes32 _previousBlock,
         uint256 _height,
-        bytes32 _stores,
+        bytes32 _store,
         bytes32 _references,
         bytes32 _transitions,
         address _sealer,
@@ -102,7 +102,7 @@ contract MerkluxCase {
     ) public onlyDefendant task(Task.SUBMIT_ORIGINAL_BLOCK) {
         originalBlock.previousBlock = _previousBlock;
         originalBlock.height = _height;
-        originalBlock.stores = _stores;
+        originalBlock.store = _store;
         originalBlock.references = _references;
         originalBlock.transitions = _transitions;
         originalBlock.sealer = _sealer;
@@ -111,119 +111,113 @@ contract MerkluxCase {
         require(originalBlock.isSealed());
     }
 
-    function commitStoreForOriginalBlockData(
-        bytes32[] _storeKeys,
-        bytes32[] _storeHashes
-    )
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
-    task(Task.SUBMIT_STORE_DATA)
-    {
-        originalBlockData.storeKeys = _storeKeys;
-        require(_storeKeys.length == _storeHashes.length);
-        for (uint i = 0; i < _storeKeys.length; i++) {
-            originalBlockData.storeHashes[_storeKeys[i]] = _storeHashes[i];
-        }
-        require(originalBlockData.getStoreRoot() == originalBlock.stores);
-    }
-
-    function commitReferencesForOriginalBlockData(
-        bytes32 _storeKey,
-        bytes32[] _references
-    )
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
-    task(Task.SUBMIT_REFERENCE_DATA)
-    {
-        originalBlockData.references[_storeKey] = _references;
-        require(originalBlockData.getReferenceRoot() == originalBlock.references);
-    }
-
-    function commitBranch(
-        bytes32 _storeKey,
-        bytes _key,
-        bytes _value,
-        uint _branchMask,
-        bytes32[] _siblings
-    ) public
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_SEAL_STORES)
-    {
-
-    }
-
-    function commitOriginalEdgeOfStore(
-        bytes32 _storeKey,
-        uint _originalLabelLength,
-        bytes32 _originalLabel,
-        bytes32 _originalValue
-    ) public
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_SEAL_STORES)
-    {
-        require(stores[_storeKey] == address(0));
-        bytes32 originalRootHash = originalBlockData.storeHashes[_storeKey];
-        MerkluxStoreForProof storeForProof = new MerkluxStoreForProof(originalRootHash);
-        stores[_storeKey] = storeForProof;
-        storeForProof.commitOriginalEdge(
-            _originalLabelLength,
-            _originalLabel,
-            _originalValue
-        );
-    }
-
-    function commitNodeOfStore(
-        bytes32 _storeKey,
-        bytes32 _nodeHash,
-        uint _firstEdgeLabelLength,
-        bytes32 _firstEdgeLabel,
-        bytes32 _firstEdgeValue,
-        uint _secondEdgeLabelLength,
-        bytes32 _secondEdgeLabel,
-        bytes32 _secondEdgeValue
-    ) public
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_SEAL_STORES)
-    {
-        MerkluxStoreForProof storeForProof = stores[_storeKey];
-        storeForProof.commitNode(
-            _nodeHash,
-            _firstEdgeLabelLength,
-            _firstEdgeLabel,
-            _firstEdgeValue,
-            _secondEdgeLabelLength,
-            _secondEdgeLabel,
-            _secondEdgeValue
-        );
-    }
-
-    function commitReferredValue(
-        bytes32 _storeKey,
-        bytes _value
-    ) public
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_SEAL_STORES)
-    {
-        MerkluxStoreForProof storeForProof = stores[_storeKey];
-        storeForProof.commitValue(
-            _value
-        );
-    }
-
-
-    function sealAllStores()
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_SEAL_STORES)
-    {
-        for (uint i = 0; i < originalBlockData.storeKeys.length; i ++) {
-            bytes32 storeKey = originalBlockData.storeKeys[i];
-            require(stores[storeKey] != address(0));
-            require(stores[storeKey].status() == MerkluxStoreForProof.Status.READY);
-        }
-    }
+//    function commitStoreForOriginalBlockData(
+//        bytes32[] _storeHashes
+//    )
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
+//    task(Task.SUBMIT_STORE_DATA)
+//    {
+//        require(_storeKeys.length == _storeHashes.length);
+//        for (uint i = 0; i < _storeKeys.length; i++) {
+//            originalBlockData.storeHashes[_storeKeys[i]] = _storeHashes[i];
+//        }
+//        require(originalBlockData.storeHash == originalBlock.store);
+//    }
+//
+//    function commitReferencesForOriginalBlockData(
+//        bytes32 _storeKey,
+//        bytes32[] _references
+//    )
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
+//    task(Task.SUBMIT_REFERENCE_DATA)
+//    {
+//        originalBlockData.references[_storeKey] = _references;
+//        require(originalBlockData.getReferenceRoot() == originalBlock.references);
+//    }
+//
+//    function commitBranch(
+//        bytes32 _storeKey,
+//        bytes _key,
+//        bytes _value,
+//        uint _branchMask,
+//        bytes32[] _siblings
+//    ) public
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_STORE_DATA)
+//    subTask(Task.SUBMIT_SEAL_STORES)
+//    {
+//
+//    }
+//
+//    function commitOriginalEdgeOfStore(
+//        uint _originalLabelLength,
+//        bytes32 _originalLabel,
+//        bytes32 _originalValue
+//    ) public
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_STORE_DATA)
+//    subTask(Task.SUBMIT_SEAL_STORES)
+//    {
+//        bytes32 originalRootHash = originalBlockData.storeHashes[_storeKey];
+//        storeForProof = new MerkluxStoreForProof(originalRootHash);
+//        storeForProof.commitOriginalEdge(
+//            _originalLabelLength,
+//            _originalLabel,
+//            _originalValue
+//        );
+//    }
+//
+//    function commitNodeOfStore(
+//        bytes32 _storeKey,
+//        bytes32 _nodeHash,
+//        uint _firstEdgeLabelLength,
+//        bytes32 _firstEdgeLabel,
+//        bytes32 _firstEdgeValue,
+//        uint _secondEdgeLabelLength,
+//        bytes32 _secondEdgeLabel,
+//        bytes32 _secondEdgeValue
+//    ) public
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_STORE_DATA)
+//    subTask(Task.SUBMIT_SEAL_STORES)
+//    {
+//        storeForProof.commitNode(
+//            _nodeHash,
+//            _firstEdgeLabelLength,
+//            _firstEdgeLabel,
+//            _firstEdgeValue,
+//            _secondEdgeLabelLength,
+//            _secondEdgeLabel,
+//            _secondEdgeValue
+//        );
+//    }
+//
+//    function commitReferredValue(
+//        bytes32 _storeKey,
+//        bytes _value
+//    ) public
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_STORE_DATA)
+//    subTask(Task.SUBMIT_SEAL_STORES)
+//    {
+//        MerkluxStoreForProof storeForProof = stores[_storeKey];
+//        storeForProof.commitValue(
+//            _value
+//        );
+//    }
+//
+//
+//    function sealAllStores()
+//    onlyDefendant
+//    hasPredecessor(Task.SUBMIT_STORE_DATA)
+//    subTask(Task.SUBMIT_SEAL_STORES)
+//    {
+//        for (uint i = 0; i < originalBlockData.storeKeys.length; i ++) {
+//            bytes32 storeKey = originalBlockData.storeKeys[i];
+//            require(stores[storeKey] != address(0));
+//            require(stores[storeKey].status() == MerkluxStoreForProof.Status.READY);
+//        }
+//    }
 }

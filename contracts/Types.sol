@@ -9,7 +9,7 @@ library Block {
     struct Object {
         bytes32 previousBlock;
         uint256 height;
-        bytes32 stores;
+        bytes32 store;
         bytes32 references;
         bytes32 transitions;
         address sealer;
@@ -32,7 +32,7 @@ library Block {
         return keccak256(abi.encodePacked(
                 _block.previousBlock,
                 _block.height,
-                _block.stores,
+                _block.store,
                 _block.references,
                 _block.transitions,
                 _block.sealer
@@ -40,20 +40,12 @@ library Block {
         );
     }
 
-    function getStoreRoot(Data storage _data) internal view returns (bytes32) {
-        bytes32[] memory storeHashes = new bytes32[](_data.storeKeys.length);
-        for (uint i = 0; i < _data.storeKeys.length; i++) {
-            storeHashes[i] = _data.storeHashes[_data.storeKeys[i]];
-        }
-        return keccak256(abi.encodePacked(storeHashes));
+    function getStoreRoot(Data memory _data) internal pure returns (bytes32) {
+        return _data.storeHash;
     }
 
     function getReferenceRoot(Data storage _data) internal view returns (bytes32) {
-        bytes32[] memory referencesForEachStore = new bytes32[](_data.storeKeys.length);
-        for (uint i = 0; i < _data.storeKeys.length; i++) {
-            referencesForEachStore[i] = keccak256(abi.encodePacked(_data.references[_data.storeKeys[i]]));
-        }
-        return keccak256(abi.encodePacked(referencesForEachStore));
+        return keccak256(abi.encodePacked(_data.references));
     }
 
     function getTransitionRoot(Data storage _data) internal view returns (bytes32) {
@@ -72,7 +64,6 @@ library Transition {
         address from;
         Type sort;
         uint256 height;
-        bytes32 store;
         string action;
         bytes data;
     }
@@ -82,7 +73,6 @@ library Transition {
                 transition.from,
                 transition.sort,
                 transition.height,
-                transition.store,
                 transition.action,
                 transition.data)
         );

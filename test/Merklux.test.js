@@ -6,41 +6,25 @@ const Merklux = artifacts.require('Merklux')
 const MerkluxStore = artifacts.require('MerkluxStore')
 const SampleReducer = artifacts.require('BalanceIncrease')
 const { signMessage } = require('openzeppelin-solidity/test/helpers/sign')
-const { rlpEncode, STORE_KEY } = require('./utils')
+const { rlpEncode } = require('./utils')
 
 contract('Merklux', async ([_, primary, nonPrimary]) => {
   let merklux
-  describe('newStore()', async () => {
-    before(async () => {
-      merklux = await Merklux.new({ from: primary })
-    })
-    it('is only able to be called by the primary address', async () => {
-      await merklux.newStore(STORE_KEY, { from: primary })
-      assert.ok('executed successfully')
-      try {
-        await merklux.newStore(STORE_KEY, { from: nonPrimary })
-        assert.fail('Non primary account was able to execute the newStore() function')
-      } catch (e) {
-        assert.ok('reverted successfully')
-      }
-    })
-  })
   describe('setReducer', async () => {
-    context('When a new store is set', async () => {
+    context('Once Merklux is deployed successfully', async () => {
       before(async () => {
         merklux = await Merklux.new({ from: primary })
-        await merklux.newStore(STORE_KEY, { from: primary })
       })
       it('is only able to be called by the primary address', async () => {
         try {
-          await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: nonPrimary })
+          await merklux.setReducer('increaseBalance', SampleReducer.bytecode, { from: nonPrimary })
           assert.fail('non primary account was able to execute this function')
         } catch (e) {
           assert.ok('successfully reverted')
         }
       })
       it('should deploy a new reducer with bytecode', async () => {
-        await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: primary })
+        await merklux.setReducer( 'increaseBalance', SampleReducer.bytecode, { from: primary })
       })
     })
   })
@@ -49,24 +33,22 @@ contract('Merklux', async ([_, primary, nonPrimary]) => {
       before(async () => {
         // deploy merklux on the child chain
         merklux = await Merklux.new({ from: primary })
-        // register new store
-        await merklux.newStore(STORE_KEY, { from: primary })
         // register new reducer
-        await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: primary })
+        await merklux.setReducer('increaseBalance', SampleReducer.bytecode, { from: primary })
       })
       it('should update its value by the reducer information', async () => {
         const VALUE_TO_INCREASE = 8
-        let userBalance = await merklux.get(STORE_KEY, primary)
+        let userBalance = await merklux.get(primary)
         // empty
         assert.equal(userBalance.toString(), '0x')
-        await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-        userBalance = await merklux.get(STORE_KEY, primary)
+        await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+        userBalance = await merklux.get(primary)
         assert.equal(web3.toDecimal(userBalance), VALUE_TO_INCREASE)
-        await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-        userBalance = await merklux.get(STORE_KEY, primary)
+        await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+        userBalance = await merklux.get(primary)
         assert.equal(web3.toDecimal(userBalance), VALUE_TO_INCREASE * 2)
-        await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-        userBalance = await merklux.get(STORE_KEY, primary)
+        await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+        userBalance = await merklux.get(primary)
         assert.equal(web3.toDecimal(userBalance), VALUE_TO_INCREASE * 3)
       })
     })
@@ -76,15 +58,13 @@ contract('Merklux', async ([_, primary, nonPrimary]) => {
     before(async () => {
       // deploy merklux on the child chain
       merklux = await Merklux.new({ from: primary })
-      // register new store
-      await merklux.newStore(STORE_KEY, { from: primary })
       // register new reducer
-      await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: primary })
+      await merklux.setReducer('increaseBalance', SampleReducer.bytecode, { from: primary })
       // dispatch 3 times
       const VALUE_TO_INCREASE = 8
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
     })
     it('should return bytes32 type of hash value to seal', async () => {
       let hashToSeal = await merklux.getBlockHashToSeal()
@@ -96,15 +76,13 @@ contract('Merklux', async ([_, primary, nonPrimary]) => {
     before(async () => {
       // deploy merklux on the child chain
       merklux = await Merklux.new({ from: primary })
-      // register new store
-      await merklux.newStore(STORE_KEY, { from: primary })
       // register new reducer
-      await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: primary })
+      await merklux.setReducer('increaseBalance', SampleReducer.bytecode, { from: primary })
       // dispatch 3 times
       const VALUE_TO_INCREASE = 8
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
       // Get hash to seal
       hashToSeal = await merklux.getBlockHashToSeal({ from: primary })
     })

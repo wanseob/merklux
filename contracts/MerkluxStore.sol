@@ -41,8 +41,9 @@ contract MerkluxStore is Secondary {
                 _reducerHash |= bytes32(_storedValue[i] & 0xFF) >> (i * 8);
             }
             return _reducerHash;
+        } else {
+            return bytes32(0);
         }
-        else return bytes32(0);
     }
 
     function get(bytes key) public view returns (bytes) {

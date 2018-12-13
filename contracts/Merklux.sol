@@ -27,9 +27,8 @@ contract Merklux is Secondary {
 
     // Every action dispatches increment the height
     uint256 public height;
-    bytes32[] storeList;
     mapping(bytes32 => MerkluxReducer) private reducers;
-    mapping(bytes32 => MerkluxStore) private stores;
+    MerkluxStore private store;
 
 
     //    mapping(bytes32 => bytes32[]) references;
@@ -47,21 +46,16 @@ contract Merklux is Secondary {
     constructor () public Secondary() {
         // Set null value as the genesis block
         chain.push(bytes32(0));
+        store = new MerkluxStore();
     }
-
 
     /**
     * @dev This is the only way to updates the merkle trees
     *
-    * @param _storeKey The hashed key of a store to update
     * @param _action The name of the action
     * @param _data RLP encoded data set
     */
-    function dispatch(bytes32 _storeKey, string _action, bytes _data) external {
-        MerkluxStore store = stores[_storeKey];
-        // stores should be initialized
-        require(address(store) != address(0));
-
+    function dispatch(string _action, bytes _data) external {
         MerkluxReducer reducer = getReducer(store.getReducerKey(_action));
 
         bytes memory rlpEncodedKeys;
@@ -70,7 +64,7 @@ contract Merklux is Secondary {
         (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducer.reduce(store, msg.sender, _data);
 
         // record referred keys during dispatching
-        _recordReferredNodes(_storeKey, referredKeys);
+        _recordReferredNodes(referredKeys);
 
         RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
         RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
@@ -84,16 +78,15 @@ contract Merklux is Secondary {
         }
 
         // record inserted keys
-        _recordReferredNodes(_storeKey, referredKeys);
+        _recordReferredNodes(referredKeys);
 
         // update candidate
-        _recordStore(_storeKey, store.getRootHash());
+        _recordStore(store.getRootHash());
 
         // record transition
         _recordTransition(
             Transition.Type.DISPATCH,
             height,
-            _storeKey,
             _action,
             _data
         );
@@ -110,50 +103,14 @@ contract Merklux is Secondary {
         blocks[blockHash] = candidate;
     }
 
-    function newStore(bytes32 _storeKey) public onlyPrimary {// TODO committee
-        // key cannot be empty
-        require(_storeKey != bytes32(0));
-
-        MerkluxStore store = stores[_storeKey];
-        // stores can not be overwritten
-        require(address(store) == 0);
-
-        // Deploy and assign a new merklux tree
-        store = new MerkluxStore();
-
-        // add store name to the list to use as a key
-        storeList.push(_storeKey);
-
-        // add the store key to the block data's store list
-        _recordNewStore(_storeKey);
-
-        // Assign deployed store to the map
-        stores[_storeKey] = store;
-
-        // record transition
-        _recordTransition(
-            Transition.Type.NEW_STORE,
-            height,
-            _storeKey,
-            "NEW",
-            new bytes(0)
-        );
-    }
-
     /**
      * @dev It allows to update reducer by overwriting
      *
-     * @param _store The store which contains state tree for the reducer to refer
      * @param _action Name of the action for the reducer to handle
      * @param _code Compiled reducer code to deploy
      */
-    function setReducer(bytes32 _store, string _action, bytes _code) public onlyPrimary {// TODO committee
+    function setReducer(string _action, bytes _code) public onlyPrimary {// TODO committee
         require(bytes(_action).length != 0);
-        require(_store != bytes32(0));
-
-        MerkluxStore store = stores[_store];
-        // stores should be initialized
-        require(address(store) != 0);
 
         // only create a new reducer when it does not exist
         bytes32 reducerKey = keccak256(_code);
@@ -173,14 +130,12 @@ contract Merklux is Secondary {
         _recordTransition(
             Transition.Type.SET_REDUCER,
             height,
-            _store,
             _action,
             _code
         );
     }
 
-    function get(bytes32 _store, bytes _key) public view returns (bytes) {
-        MerkluxStore store = stores[_store];
+    function get(bytes _key) public view returns (bytes) {
         return store.get(_key);
     }
 
@@ -199,7 +154,7 @@ contract Merklux is Secondary {
         Block.Data storage data = _getCurrentBlockData();
         candidate.height = height;
         candidate.previousBlock = chain[chain.length - 1];
-        candidate.stores = data.getStoreRoot();
+        candidate.store = data.getStoreRoot();
         candidate.references = data.getReferenceRoot();
         candidate.transitions = data.getTransitionRoot();
         candidate.sealer = _sealer;
@@ -210,9 +165,9 @@ contract Merklux is Secondary {
         return blockData[chain.length];
     }
 
-    function _recordReferredNodes(bytes32 _store, bytes32[] memory _keys) private {
+    function _recordReferredNodes(bytes32[] memory _keys) private {
         Block.Data storage data = _getCurrentBlockData();
-        bytes32[] storage keys = data.references[_store];
+        bytes32[] storage keys = data.references;
 
         for (uint i = 0; i < _keys.length; i ++) {
             bool exist = false;
@@ -226,20 +181,14 @@ contract Merklux is Secondary {
         }
     }
 
-    function _recordNewStore(bytes32 _store) private {
+    function _recordStore(bytes32 _hash) private {
         Block.Data storage data = _getCurrentBlockData();
-        data.storeKeys.push(_store);
-    }
-
-    function _recordStore(bytes32 _store, bytes32 _hash) private {
-        Block.Data storage data = _getCurrentBlockData();
-        data.storeHashes[_store] = _hash;
+        data.storeHash = _hash;
     }
 
     function _recordTransition(
         Transition.Type _sort,
         uint256 _height,
-        bytes32 _store,
         string _action,
         bytes _data
     ) private {
@@ -248,7 +197,6 @@ contract Merklux is Secondary {
             msg.sender,
             _sort,
             _height,
-            _store,
             _action,
             _data
         );
