@@ -6,7 +6,7 @@ const { signMessage } = require('openzeppelin-solidity/test/helpers/sign')
 const Merklux = artifacts.require('Merklux')
 const MerkluxCase = artifacts.require('MerkluxCase')
 const SampleReducer = artifacts.require('BalanceIncrease')
-const { rlpEncode, STORE_KEY } = require('./utils')
+const { rlpEncode } = require('./utils')
 
 contract('MerkluxCase', async ([_, primary, alice, bob, attorney]) => {
   context('Dispatch transactions and seal two blocks on the child chain', async () => {
@@ -15,22 +15,20 @@ contract('MerkluxCase', async ([_, primary, alice, bob, attorney]) => {
     before(async () => {
       // deploy merklux on the child chain
       let merklux = await Merklux.new({ from: primary })
-      // register new store
-      await merklux.newStore(STORE_KEY, { from: primary })
       // register new reducer
-      await merklux.setReducer(STORE_KEY, 'increaseBalance', SampleReducer.bytecode, { from: primary })
+      await merklux.setReducer('increaseBalance', SampleReducer.bytecode, { from: primary })
       // dispatch 3 times
       const VALUE_TO_INCREASE = 8
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
       // Get hash to seal
       let firstHashToSeal = await merklux.getBlockHashToSeal({ from: alice })
       let firstSignature = signMessage(alice, firstHashToSeal)
       await merklux.seal(firstSignature, { from: alice })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
-      await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
+      await merklux.dispatch('increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: primary })
       let secondHashToSeal = await merklux.getBlockHashToSeal({ from: bob })
       let secondSignature = signMessage(bob, secondHashToSeal)
       await merklux.seal(secondSignature, { from: bob })

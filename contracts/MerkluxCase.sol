@@ -4,9 +4,11 @@ import "solidity-rlp/contracts/RLPReader.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/access/Roles.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
+import "solidity-rlp/contracts/RLPReader.sol";
 import "./MerkluxStore.sol";
 import "./MerkluxReducer.sol";
 import "./MerkluxStoreForProof.sol";
+import "./MerkluxReducerRegistry.sol";
 import {Block, Transition} from "./Types.sol";
 
 
@@ -15,11 +17,14 @@ contract MerkluxCase {
     using Block for Block.Object;
     using Block for Block.Data;
     using Roles for Roles.Role;
+    using RLPReader for RLPReader.RLPItem;
+    using SafeMath for uint256;
+    using RLPReader for bytes;
+
     enum Task {
         SUBMIT_ORIGINAL_BLOCK,
-        SUBMIT_STORE_DATA,
         SUBMIT_REFERENCE_DATA,
-        SUBMIT_SEAL_STORES,
+        SUBMIT_STORE_DATA,
         SUBMIT_DISPATCHES
     }
 
@@ -32,10 +37,14 @@ contract MerkluxCase {
 
     uint256 public height;
     MerkluxStoreForProof storeForProof;
+    MerkluxReducerRegistry registry;
+
     mapping(uint256 => Transition.Object) transitions;
 
     Block.Object originalBlock;
     Block.Data originalBlockData;
+
+    mapping(bytes32 => bool) submittedReferences;
 
     event TaskDone(Task _task);
 
@@ -52,7 +61,7 @@ contract MerkluxCase {
     modifier task(Task _task) {
         require(!todos[uint(_task)]);
         _;
-        todos[uint(_task)] = true;
+        _done(_task);
         emit TaskDone(_task);
     }
 
@@ -68,13 +77,15 @@ contract MerkluxCase {
     constructor(
         bytes32 _originalRootHash,
         bytes32 _targetRootHash,
-        address _defendant
+        address _defendant,
+        address _reducerRegistry
     ) public {
         // Init status
         original = _originalRootHash;
         target = _targetRootHash;
         defendant = _defendant;
         accuser = msg.sender;
+        registry = MerkluxReducerRegistry(_reducerRegistry);
     }
 
     function appoint(address _attorney) public onlyDefendant {
@@ -91,7 +102,7 @@ contract MerkluxCase {
         selfdestruct(accuser);
     }
 
-    function commitOriginalBlock(
+    function submitBlockData(
         bytes32 _previousBlock,
         uint256 _height,
         bytes32 _store,
@@ -109,115 +120,97 @@ contract MerkluxCase {
         originalBlock.signature = _signature;
         require(originalBlock.getBlockHash() == original);
         require(originalBlock.isSealed());
+        storeForProof = new MerkluxStoreForProof(_store);
+        height = _height;
     }
 
-//    function commitStoreForOriginalBlockData(
-//        bytes32[] _storeHashes
-//    )
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
-//    task(Task.SUBMIT_STORE_DATA)
-//    {
-//        require(_storeKeys.length == _storeHashes.length);
-//        for (uint i = 0; i < _storeKeys.length; i++) {
-//            originalBlockData.storeHashes[_storeKeys[i]] = _storeHashes[i];
-//        }
-//        require(originalBlockData.storeHash == originalBlock.store);
-//    }
-//
-//    function commitReferencesForOriginalBlockData(
-//        bytes32 _storeKey,
-//        bytes32[] _references
-//    )
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
-//    task(Task.SUBMIT_REFERENCE_DATA)
-//    {
-//        originalBlockData.references[_storeKey] = _references;
-//        require(originalBlockData.getReferenceRoot() == originalBlock.references);
-//    }
-//
-//    function commitBranch(
-//        bytes32 _storeKey,
-//        bytes _key,
-//        bytes _value,
-//        uint _branchMask,
-//        bytes32[] _siblings
-//    ) public
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_STORE_DATA)
-//    subTask(Task.SUBMIT_SEAL_STORES)
-//    {
-//
-//    }
-//
-//    function commitOriginalEdgeOfStore(
-//        uint _originalLabelLength,
-//        bytes32 _originalLabel,
-//        bytes32 _originalValue
-//    ) public
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_STORE_DATA)
-//    subTask(Task.SUBMIT_SEAL_STORES)
-//    {
-//        bytes32 originalRootHash = originalBlockData.storeHashes[_storeKey];
-//        storeForProof = new MerkluxStoreForProof(originalRootHash);
-//        storeForProof.commitOriginalEdge(
-//            _originalLabelLength,
-//            _originalLabel,
-//            _originalValue
-//        );
-//    }
-//
-//    function commitNodeOfStore(
-//        bytes32 _storeKey,
-//        bytes32 _nodeHash,
-//        uint _firstEdgeLabelLength,
-//        bytes32 _firstEdgeLabel,
-//        bytes32 _firstEdgeValue,
-//        uint _secondEdgeLabelLength,
-//        bytes32 _secondEdgeLabel,
-//        bytes32 _secondEdgeValue
-//    ) public
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_STORE_DATA)
-//    subTask(Task.SUBMIT_SEAL_STORES)
-//    {
-//        storeForProof.commitNode(
-//            _nodeHash,
-//            _firstEdgeLabelLength,
-//            _firstEdgeLabel,
-//            _firstEdgeValue,
-//            _secondEdgeLabelLength,
-//            _secondEdgeLabel,
-//            _secondEdgeValue
-//        );
-//    }
-//
-//    function commitReferredValue(
-//        bytes32 _storeKey,
-//        bytes _value
-//    ) public
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_STORE_DATA)
-//    subTask(Task.SUBMIT_SEAL_STORES)
-//    {
-//        MerkluxStoreForProof storeForProof = stores[_storeKey];
-//        storeForProof.commitValue(
-//            _value
-//        );
-//    }
-//
-//
-//    function sealAllStores()
-//    onlyDefendant
-//    hasPredecessor(Task.SUBMIT_STORE_DATA)
-//    subTask(Task.SUBMIT_SEAL_STORES)
-//    {
-//        for (uint i = 0; i < originalBlockData.storeKeys.length; i ++) {
-//            bytes32 storeKey = originalBlockData.storeKeys[i];
-//            require(stores[storeKey] != address(0));
-//            require(stores[storeKey].status() == MerkluxStoreForProof.Status.READY);
-//        }
-//    }
+    function submitReferredKeyData(
+        bytes32[] _references
+    ) public
+    onlyDefendant
+    hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
+    task(Task.SUBMIT_REFERENCE_DATA)
+    {
+        originalBlockData.references = _references;
+        require(originalBlockData.getReferenceRoot() == originalBlock.references);
+    }
+
+    function submitBranch(
+        bytes _key,
+        bytes _value,
+        uint _branchMask,
+        bytes32[] _siblings
+    ) public
+    onlyDefendant
+    hasPredecessor(Task.SUBMIT_REFERENCE_DATA)
+    subTask(Task.SUBMIT_STORE_DATA)
+    {
+        bytes32 _hashedKey = keccak256(_key);
+        require(!submittedReferences[_hashedKey]);
+        storeForProof.commitBranch(_key, _value, _branchMask, _siblings);
+
+        // Check it is completed to commit all branch data for the referred nodes
+        submittedReferences[_hashedKey] = true;
+        bool submittedAllReferredNodes = true;
+        for (uint i = 0; i < originalBlockData.references.length; i++) {
+            if (!submittedReferences[originalBlockData.references[i]]) {
+                submittedAllReferredNodes = false;
+                break;
+            }
+        }
+        if (submittedAllReferredNodes) {
+            _done(Task.SUBMIT_STORE_DATA);
+            emit TaskDone(Task.SUBMIT_STORE_DATA);
+        }
+    }
+
+    function submitDispatch(
+      uint256 _height,
+      string _action,
+      bytes _data
+    ) public
+    onlyDefendant
+    hasPredecessor(Task.SUBMIT_STORE_DATA)
+    subTask(Task.SUBMIT_DISPATCHES)
+    {
+      require(height==_height);
+
+      MerkluxReducer reducer = registry.getReducer(storeForProof.getReducerKey(_action));
+
+      bytes memory rlpEncodedKeys;
+      bytes memory rlpEncodedValues;
+      bytes32[] memory referredKeys;
+      (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducer.reduce(storeForProof, msg.sender, _data);
+
+      // compare referred keys & submitted references
+      // (referredKeys);
+
+      RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
+      RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
+      require(keys.length == values.length);
+
+      for (uint i = 0; i < keys.length; i++) {
+        storeForProof.insert(keys[i].toBytes(), values[i].toBytes());
+      }
+
+      // Calculate first
+      height = height.add(1);
+    }
+
+    function isNeeded(bytes memory _key) hasPredecessor(Task.SUBMIT_REFERENCE_DATA) public view returns (bool) {
+        bytes32 _hashedKey = keccak256(_key);
+        for (uint i = 0; i < originalBlockData.references.length; i++) {
+            // If it is included in the referred key list
+            if (originalBlockData.references[i] == _hashedKey) {
+                // Check it is already submitted or not
+                return !submittedReferences[_hashedKey];
+            }
+        }
+        // It is not included in the referred key list
+        return false;
+    }
+
+    function _done(Task _task) private {
+        todos[uint(_task)] = true;
+    }
 }

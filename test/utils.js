@@ -28,10 +28,7 @@ const progress = {
 
 const rlpEncode = (data) => '0x' + rlp.encode(data).toString('hex')
 
-const STORE_KEY = web3.sha3('default', { encoding: 'hex' })
-
 module.exports = {
-  STORE_KEY,
   rlpEncode,
   toNodeObject,
   progress

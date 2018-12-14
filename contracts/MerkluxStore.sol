@@ -4,13 +4,14 @@ import {PatriciaTree} from "solidity-patricia-tree/contracts/tree.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/access/Roles.sol";
 import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
+import "./IMerkluxStore.sol";
 
 
 /**
  * @title MerkluxTree data structure for
  *
  */
-contract MerkluxStore is Secondary {
+contract MerkluxStore is Secondary, IMerkluxStore {
     using PatriciaTree for PatriciaTree.Tree;
     using Roles for Roles.Role;
     string constant REDUCER = "&";

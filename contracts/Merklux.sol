@@ -6,6 +6,7 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "solidity-rlp/contracts/RLPReader.sol";
 import "./MerkluxStore.sol";
 import "./MerkluxReducer.sol";
+import "./MerkluxReducerRegistry.sol";
 import {Block, Transition} from "./Types.sol";
 
 
@@ -15,7 +16,7 @@ import {Block, Transition} from "./Types.sol";
  * unidirectional data flow. It can be used for state verifications accross evm
  * based block chains.
  */
-contract Merklux is Secondary {
+contract Merklux is Secondary, MerkluxReducerRegistry{
 
     using Block for Block.Object;
     using Block for Block.Data;
@@ -29,11 +30,6 @@ contract Merklux is Secondary {
     uint256 public height;
     mapping(bytes32 => MerkluxReducer) private reducers;
     MerkluxStore private store;
-
-
-    //    mapping(bytes32 => bytes32[]) references;
-    //
-    //    Transition.Object[] transitionsOfCurrentBlock;
 
 
     bytes32[] chain;
@@ -56,29 +52,33 @@ contract Merklux is Secondary {
     * @param _data RLP encoded data set
     */
     function dispatch(string _action, bytes _data) external {
-        MerkluxReducer reducer = getReducer(store.getReducerKey(_action));
+        bytes32 reducerKey = store.getReducerKey(_action);
+        MerkluxReducer reducer = getReducer(reducerKey);
 
         bytes memory rlpEncodedKeys;
         bytes memory rlpEncodedValues;
         bytes32[] memory referredKeys;
         (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducer.reduce(store, msg.sender, _data);
 
-        // record referred keys during dispatching
-        _recordReferredNodes(referredKeys);
-
         RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
         RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
         require(keys.length == values.length);
 
-        referredKeys = new bytes32[](keys.length);
-
+        // Record references
+        bytes32[] memory references = new bytes32[](1 + keys.length + referredKeys.length);
+        // record reducer key
+        references[0] = reducerKey;
+        // record inserted keys
         for (uint i = 0; i < keys.length; i++) {
             store.insert(keys[i].toBytes(), values[i].toBytes());
-            referredKeys[i] = keccak256(keys[i].toBytes());
+            references[1 + i] = keccak256(keys[i].toBytes());
+        }
+        // record referred keys
+        for (i = 0; i < referredKeys.length; i++) {
+            references[1 + keys.length + i] = referredKeys[i];
         }
 
-        // record inserted keys
-        _recordReferredNodes(referredKeys);
+        _recordReferences(references);
 
         // update candidate
         _recordStore(store.getRootHash());
@@ -111,16 +111,8 @@ contract Merklux is Secondary {
      */
     function setReducer(string _action, bytes _code) public onlyPrimary {// TODO committee
         require(bytes(_action).length != 0);
-
-        // only create a new reducer when it does not exist
-        bytes32 reducerKey = keccak256(_code);
-        if (reducers[reducerKey] == address(0)) {
-            address reducerAddress;
-            assembly {
-                reducerAddress := create(0, add(_code, 0x20), mload(_code))
-            }
-            reducers[reducerKey] = MerkluxReducer(reducerAddress);
-        }
+        // Register reducer
+        bytes32 reducerKey = registerReducer(_code);
         // Add the action into the actions list
         if (store.getReducerKey(_action) == bytes32(0)) {
             store.setReducer(_action, reducerKey);
@@ -143,13 +135,6 @@ contract Merklux is Secondary {
         return _getBlockCandidate(msg.sender).getBlockHash();
     }
 
-    function getReducer(bytes32 _reducerKey) public view returns (MerkluxReducer) {
-        require(_reducerKey != bytes32(0));
-        // The reducer also should exist
-        require(reducers[_reducerKey] != address(0));
-        return reducers[_reducerKey];
-    }
-
     function _getBlockCandidate(address _sealer) private view returns (Block.Object memory candidate) {
         Block.Data storage data = _getCurrentBlockData();
         candidate.height = height;
@@ -165,7 +150,7 @@ contract Merklux is Secondary {
         return blockData[chain.length];
     }
 
-    function _recordReferredNodes(bytes32[] memory _keys) private {
+    function _recordReferences(bytes32[] memory _keys) private {
         Block.Data storage data = _getCurrentBlockData();
         bytes32[] storage keys = data.references;
 
