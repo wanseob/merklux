@@ -4,7 +4,7 @@ pragma solidity ^0.4.24;
 import {PartialMerkleTree} from "solidity-partial-tree/contracts/tree.sol";
 import {D} from "solidity-partial-tree/contracts/data.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
-import "./IMerkluxStore.sol";
+import "./interfaces/IMerkluxStore.sol";
 
 contract MerkluxStoreForProof is Secondary, IMerkluxStore {
     using PartialMerkleTree for PartialMerkleTree.Tree;
