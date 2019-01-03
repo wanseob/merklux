@@ -2,7 +2,6 @@ pragma solidity ^0.4.24;
 
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import {Roles} from "openzeppelin-solidity/contracts/access/Roles.sol";
-import "./MerkluxStoreForProof.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import {Block} from "./Types.sol";
 
@@ -51,7 +50,7 @@ contract MerkluxRoot is Secondary {
 ////        bytes32 previousblockhash,
 ////        bytes32[] reducers,
 ////        bytes32[] stores,
-////        bytes32[] transitions
+////        bytes32[] actions
 ////    ) public {
 ////        // todo snapshot submitting reward
 ////        // todo validator reward

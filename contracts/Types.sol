@@ -6,14 +6,14 @@ import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 library Block {
     using SafeMath for uint256;
     using ECDSA for bytes32;
-    using Transition for Transition.Object;
+    using Action for Action.Object;
 
     struct Object {
         bytes32 previousBlock;
-        uint256 txNum;
+        uint256 actionNum;
         bytes32 state;
         bytes32 references;
-        bytes32 transitions;
+        bytes32 actions;
         address sealer;
         bytes signature;
         // address[] validators; TODO use modified Casper
@@ -27,10 +27,10 @@ library Block {
     function getBlockHash(Object memory _block) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(
                 _block.previousBlock,
-                _block.txNum,
+                _block.actionNum,
                 _block.state,
                 _block.references,
-                _block.transitions,
+                _block.actions,
                 _block.sealer
             )
         );
@@ -47,7 +47,7 @@ library Chain {
     function addBlock(Object storage _obj, Block.Object memory _candidate) internal {
         bytes32 blockHash = Block.getBlockHash(_candidate);
         if (_obj.chain.length > 0) {
-            require(_obj.blocks[_candidate.previousBlock].txNum < _candidate.txNum);
+            require(_obj.blocks[_candidate.previousBlock].actionNum < _candidate.actionNum);
         }
         _obj.chain.push(blockHash);
         _obj.blocks[blockHash] = _candidate;
@@ -59,20 +59,20 @@ library Chain {
 
     function getBlockWithHash(Object storage _obj, bytes32 _hash) internal view returns (
         bytes32 _previousBlock,
-        uint256 _txNum,
+        uint256 _actionNum,
         bytes32 _state,
         bytes32 _references,
-        bytes32 _transitions,
+        bytes32 _actions,
         address _sealer,
         bytes memory _signature
     ) {
         Block.Object storage blockObj = _obj.blocks[_hash];
         return (
         blockObj.previousBlock,
-        blockObj.txNum,
+        blockObj.actionNum,
         blockObj.state,
         blockObj.references,
-        blockObj.transitions,
+        blockObj.actions,
         blockObj.sealer,
         blockObj.signature
         );
@@ -80,10 +80,10 @@ library Chain {
 
     function getBlockWithHeight(Object storage _obj, uint _height) internal view returns (
         bytes32 _previousBlock,
-        uint256 _txNum,
+        uint256 _actionNum,
         bytes32 _state,
         bytes32 _references,
-        bytes32 _transitions,
+        bytes32 _actions,
         address _sealer,
         bytes memory _signature
     ) {
@@ -96,27 +96,26 @@ library Chain {
     }
 }
 
-library Transition {
-    enum Type  {SET_REDUCER, DISPATCH}
-
+library Action {
     struct Object {
         bytes32 base;
         address from;
-        uint256 txNum;
+        uint256 actionNum;
         uint256 nonce;
         string action;
         bytes data;
+        bytes signature;
     }
 
-    function getTransitionHash(Object transition) internal pure returns (bytes32) {
+    function getActionHash(Object _action) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                transition.base,
-                transition.from,
-                transition.txNum,
-                transition.nonce,
-                transition.action,
-                transition.data
+                _action.base,
+                _action.from,
+                _action.actionNum,
+                _action.nonce,
+                _action.action,
+                _action.data
             )
         );
     }

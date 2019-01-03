@@ -3,10 +3,10 @@ pragma solidity ^0.4.24;
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "./MerkluxStore.sol";
 import "./interfaces/IMerkluxReducerRegistry.sol";
 import "./interfaces/IMerkluxProvider.sol";
-import {Block, Chain, Transition} from "./Types.sol";
+import "./interfaces/IMerkluxStoreForVM.sol";
+import {Block, Chain} from "./Types.sol";
 
 
 
@@ -16,28 +16,34 @@ import {Block, Chain, Transition} from "./Types.sol";
  * unidirectional data flow. It can be used for state verifications accross evm
  * based block chains.
  */
-contract MerkluxVM is IMerkluxProvider {
-    string constant SET_REDUCER = "SET_REDUCER";
 
+contract MerkluxVM is IMerkluxProvider {
     using Block for Block.Object;
     using Chain for Chain.Object;
     using SafeMath for uint256;
     using ECDSA for bytes32;
 
-    // Every action dispatches increment the txNum
-    //    uint256 public txNum;
+    // Every action dispatches increment the actionNum
+    //    uint256 public actionNum;
 
+    event Dispatched(bytes32 _actionHash);
     event Sealed(bytes32 _blockHash, bytes _signature);
 
-    function dispatch(string _action, bytes _data, bytes32 _prevBlock, uint256 _nonce, bool _deployReducer, bytes _signature) public {
-        Chain.Object storage chain = getChain();
+    function dispatch(
+        string _action,
+        bytes _data,
+        bytes32 _prevBlock,
+        uint256 _nonce,
+        bool _deployReducer,
+        bytes _signature
+    ) public {
         IMerkluxReducerRegistry registry = getRegistry();
-        MerkluxStore store = getStore();
-        bytes32 lastBlockHash = chain.getLastBlockHash();
+        IMerkluxStoreForVM store = getStore();
+        Chain.Object storage chain = getChain();
         // only accept when prev block is same
-        require(_prevBlock == lastBlockHash);
+        require(chain.getLastBlockHash() == _prevBlock);
         // check the signature
-        address from = keccak256(abi.encodePacked(
+        address _from = keccak256(abi.encodePacked(
                 _action,
                 _data,
                 _prevBlock,
@@ -46,28 +52,25 @@ contract MerkluxVM is IMerkluxProvider {
             )).toEthSignedMessageHash().recover(_signature);
 
         // increase nonce
-        store.increaseAccountTxNonce(from, _nonce);
+        store.increaseAccountActionNonce(_from, _nonce);
 
         // update state tree & reference tree
         if (_deployReducer) {
             store.deployReducer(registry, _action, _data);
         } else {
-            store.runReducer(registry, from, _action, _data);
+            store.runReducer(registry, _from, _action, _data);
         }
 
-        store.putTransition(
-            lastBlockHash,
-            from,
-            _nonce,
-            _action,
-            _data
-        );
+        // record action
+        bytes32 actionHash = store.putAction(_prevBlock, _from, _nonce, _action, _data, _signature);
+        emit Dispatched(actionHash);
     }
 
     // TODO set modifier to allow only the pseudo-randomly selected snapshot submitter
     function seal(bytes _signature) external {
         Block.Object memory candidate = _getBlockCandidate(msg.sender);
         Chain.Object storage chain = getChain();
+        IMerkluxStoreForVM store = getStore();
 
         candidate.signature = _signature;
         // Check signature
@@ -75,28 +78,25 @@ contract MerkluxVM is IMerkluxProvider {
         bytes32 blockHash = candidate.getBlockHash();
         chain.addBlock(candidate);
         emit Sealed(blockHash, _signature);
-    }
-
-    function get(bytes _key) public view returns (bytes) {
-        return getStore().get(_key);
+        store.resetCurrentData();
     }
 
     function getBlockHashToSeal() public view returns (bytes32) {
         return _getBlockCandidate(msg.sender).getBlockHash();
     }
 
-    function getDataForNewTx() public view returns (bytes32 prevBlockHash, uint256 nonce) {
+    function getDataForNewAction() public view returns (bytes32 prevBlockHash, uint256 nonce) {
         Chain.Object storage chain = getChain();
-        MerkluxStore store = getStore();
-        return (chain.getLastBlockHash(), store.getAccountTxNonce(msg.sender).add(1));
+        IMerkluxStoreForVM store = getStore();
+        return (chain.getLastBlockHash(), store.getAccountActionNonce(msg.sender).add(1));
     }
 
     function getBlock(bytes32 _blockHash) public view returns (
         bytes32 _previousBlock,
-        uint256 _txNum,
+        uint256 _actionNum,
         bytes32 _state,
         bytes32 _references,
-        bytes32 _transitions,
+        bytes32 _actions,
         address _sealer,
         bytes memory _signature
     ) {
@@ -106,12 +106,12 @@ contract MerkluxVM is IMerkluxProvider {
 
     function _getBlockCandidate(address _sealer) private view returns (Block.Object memory candidate) {
         Chain.Object storage chain = getChain();
-        MerkluxStore store = getStore();
+        IMerkluxStoreForVM store = getStore();
         candidate.previousBlock = chain.getLastBlockHash();
-        candidate.txNum = store.getTxNum();
+        candidate.actionNum = store.getActionNum();
         candidate.state = store.getStateRoot();
         candidate.references = store.getReferenceRoot();
-        candidate.transitions = store.getTransitionRoot();
+        candidate.actions = store.getActionRoot();
         candidate.sealer = _sealer;
         return candidate;
     }

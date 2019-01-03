@@ -1,21 +1,25 @@
 pragma solidity ^0.4.24;
 
+import {PartialMerkleTree} from "solidity-partial-tree/contracts/tree.sol";
 import {PatriciaTree} from "solidity-patricia-tree/contracts/tree.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/access/Roles.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "solidity-rlp/contracts/RLPReader.sol";
+import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 import "./interfaces/IStateTree.sol";
 import "./interfaces/IMerkluxReducerRegistry.sol";
 import "./interfaces/IMerkluxStoreForVM.sol";
 import {Action} from "./Types.sol";
 
+
 /**
  * @title MerkluxTree data structure for
  *
  */
-contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
+contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     using SafeMath for uint256;
+    using PartialMerkleTree for PartialMerkleTree.Tree;
     using PatriciaTree for PatriciaTree.Tree;
     using Roles for Roles.Role;
     using RLPReader for RLPReader.RLPItem;
@@ -25,7 +29,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
 
     uint256 private actionNum;
     Roles.Role private reducers;
-    PatriciaTree.Tree private stateTree;
+    PartialMerkleTree.Tree private stateTree;
     PatriciaTree.Tree private referenceTree;
     PatriciaTree.Tree private actionTree;
     address[] private callers;
@@ -33,12 +37,17 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     bytes[] public references;
     Action.Object[] public actions;
 
+
     modifier onlyReducers() {
         require(msg.sender == primary() || reducers.has(msg.sender));
         _;
     }
 
     constructor() public Secondary() {
+    }
+
+    function commitBranch(bytes key, bytes value, uint branchMask, bytes32[] siblings) public onlyPrimary {
+        stateTree.commitBranch(key, value, branchMask, siblings);
     }
 
 
@@ -138,7 +147,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         return stateTree.getProof(_key);
     }
 
-    function getActionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
+    function getTransactionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
         return actionTree.getProof(abi.encodePacked(actionHash));
     }
 

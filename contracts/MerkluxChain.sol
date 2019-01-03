@@ -1,8 +1,8 @@
 pragma solidity ^0.4.24;
 
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
-import "./MerkluxReducerRegistry.sol";
 import "./MerkluxVM.sol";
+import "./MerkluxStore.sol";
 
 
 /**
@@ -12,35 +12,46 @@ import "./MerkluxVM.sol";
  * based block chains.
  */
 contract MerkluxChain is Secondary, MerkluxVM {
-    string constant SET_REDUCER = "SET_REDUCER";
-
     // Every action dispatches increment the height
+    MerkluxStore public store;
+    IMerkluxReducerRegistry public registry;
     Chain.Object private chain;
-    MerkluxStore private store;
-    MerkluxReducerRegistry private registry;
 
     constructor () public Secondary() {
         Block.Object memory genesis;
-        store = new MerkluxStore();
-        registry = new MerkluxReducerRegistry();
         chain.addBlock(genesis);
     }
 
-    function dispatch(string _action, bytes _data, bytes32 _prevBlock, uint256 _nonce, bool _deployReducer, bytes _signature) public onlyPrimary {
+    function initStore(address _store) public onlyPrimary {
+        store = MerkluxStore(_store);
+    }
+
+    function initRegistry(address _registry) public onlyPrimary {
+        registry = IMerkluxReducerRegistry(_registry);
+    }
+
+    function dispatch(
+        string _action,
+        bytes _data,
+        bytes32 _prevBlock,
+        uint256 _nonce,
+        bool _deployReducer,
+        bytes _signature
+    ) public onlyPrimary {
         super.dispatch(_action, _data, _prevBlock, _nonce, _deployReducer, _signature);
     }
 
-    function makeTx(
+    function makeAction(
         string _action,
         bytes _data,
         bool _deployReducer
     ) public view returns (
-        bytes32 txHash,
+        bytes32 actionHash,
         bytes32 prevBlockHash,
         uint256 nonce
     ) {
-        (prevBlockHash, nonce) = getDataForNewTx();
-        txHash = keccak256(abi.encodePacked(
+        (prevBlockHash, nonce) = getDataForNewAction();
+        actionHash = keccak256(abi.encodePacked(
                 _action,
                 _data,
                 prevBlockHash,
@@ -53,7 +64,7 @@ contract MerkluxChain is Secondary, MerkluxVM {
         return chain;
     }
 
-    function getStore() internal view returns (MerkluxStore) {
+    function getStore() internal view returns (IMerkluxStoreForVM) {
         return store;
     }
 

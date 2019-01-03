@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 
 import "solidity-rlp/contracts/RLPReader.sol";
-import "./interfaces/IMerkluxStore.sol";
+import "./interfaces/IStateTree.sol";
 import "./utils/ReducerUtil.sol";
 
 
@@ -19,7 +19,7 @@ contract MerkluxReducer {
     It is possible to process a merkle proof with a minimum number of nodes by submitting only the referred nodes.
     */
     function reduce(
-        IMerkluxStore _tree,
+        IStateTree _tree,
         address _from,
         bytes _encodedParams
     ) public returns (

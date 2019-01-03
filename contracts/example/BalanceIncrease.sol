@@ -6,7 +6,7 @@ import "../../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 
 contract BalanceIncrease is MerkluxReducer {
     function reduce(
-        IMerkluxStore _tree,
+        IStateTree _tree,
         address _from,
         bytes memory _encodedParams // rlp encoded params
     ) public returns (

@@ -2,7 +2,6 @@ pragma solidity ^0.4.24;
 
 import "./MerkluxReducer.sol";
 import "./interfaces/IMerkluxReducerRegistry.sol";
-import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 
 contract MerkluxReducerRegistry is IMerkluxReducerRegistry {
     mapping(bytes32 => MerkluxReducer) reducers;
@@ -29,9 +28,6 @@ contract MerkluxReducerRegistry is IMerkluxReducerRegistry {
     }
 
     function getReducer(bytes32 _reducerKey) public view returns (MerkluxReducer) {
-//        require(_reducerKey != bytes32(0));
-        // The reducer also should exist
-//        require(isDeployed(_reducerKey));
         return reducers[_reducerKey];
     }
 

@@ -23,10 +23,13 @@ module.exports = {
       network_id: '*',
     }
   },
-  solc: {
-    optimizer: {
-      enabled: true,
-      runs: 500
+  compilers: {
+    solc: {
+      version: '0.4.25',
+      optimizer: {
+        enabled: true,
+        runs: 5000000
+      }
     }
-  }
+  },
 }
