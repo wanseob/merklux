@@ -39,9 +39,8 @@ contract MerkluxVM is IMerkluxProvider {
     ) public {
         IMerkluxReducerRegistry registry = getRegistry();
         IMerkluxStoreForVM store = getStore();
-        Chain.Object storage chain = getChain();
         // only accept when prev block is same
-        require(chain.getLastBlockHash() == _prevBlock);
+        require(_isRecent(_prevBlock));
         // check the signature
         address _from = keccak256(abi.encodePacked(
                 _action,
@@ -62,7 +61,15 @@ contract MerkluxVM is IMerkluxProvider {
         }
 
         // record action
-        bytes32 actionHash = store.putAction(_prevBlock, _from, _nonce, _action, _data, _signature);
+        bytes32 actionHash = store.putAction(
+            _prevBlock,
+            _from,
+            _nonce,
+            _action,
+            _deployReducer,
+            _data,
+            _signature
+        );
         emit Dispatched(actionHash);
     }
 
@@ -102,6 +109,11 @@ contract MerkluxVM is IMerkluxProvider {
     ) {
         Chain.Object storage chain = getChain();
         return chain.getBlockWithHash(_blockHash);
+    }
+
+    function _isRecent(bytes32 _hash) private view returns (bool){
+        Chain.Object storage chain = getChain();
+        return (chain.getLastBlockHash() == _hash);
     }
 
     function _getBlockCandidate(address _sealer) private view returns (Block.Object memory candidate) {

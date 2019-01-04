@@ -85,6 +85,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         address _from,
         uint256 _nonce,
         string _action,
+        bool _deployReducer,
         bytes _data,
         bytes _signature
     ) public onlyPrimary returns (bytes32 _actionHash) {
@@ -94,6 +95,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
             actionNum,
             _nonce,
             _action,
+            _deployReducer,
             _data,
             _signature
         );

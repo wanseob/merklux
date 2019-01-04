@@ -46,10 +46,18 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     constructor() public Secondary() {
     }
 
-    function commitBranch(bytes key, bytes value, uint branchMask, bytes32[] siblings) public onlyPrimary {
-        stateTree.commitBranch(key, value, branchMask, siblings);
+    function setActionNum(uint256 _actionNum) public onlyPrimary {
+        require(actionNum == 0);
+        actionNum = _actionNum;
     }
 
+    function commitBranch(bytes _key, bytes _value, uint _branchMask, bytes32[] _siblings) public onlyPrimary {
+        stateTree.commitBranch(_key, _value, _branchMask, _siblings);
+        if (referenceTree.get(_key).length == 0) {
+            references.push(_key);
+            referenceTree.insert(_key, EXIST);
+        }
+    }
 
     function deployReducer(IMerkluxReducerRegistry _registry, string _action, bytes _data) public onlyPrimary {
         bytes32 reducerKey;
@@ -94,6 +102,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
         address _from,
         uint256 _nonce,
         string _action,
+        bool _deployReducer,
         bytes _data,
         bytes _signature
     ) public onlyPrimary returns (bytes32 _actionHash) {
@@ -103,6 +112,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
             actionNum,
             _nonce,
             _action,
+            _deployReducer,
             _data,
             _signature
         );
@@ -147,7 +157,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
         return stateTree.getProof(_key);
     }
 
-    function getTransactionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
+    function getActionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
         return actionTree.getProof(abi.encodePacked(actionHash));
     }
 
@@ -222,3 +232,4 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
         for (uint i = 1; i < _actionKey.length; i++) _actionKey[i] = _a[i - 1];
     }
 }
+

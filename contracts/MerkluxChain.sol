@@ -22,11 +22,10 @@ contract MerkluxChain is Secondary, MerkluxVM {
         chain.addBlock(genesis);
     }
 
-    function initStore(address _store) public onlyPrimary {
+    function init(address _store, address _registry) public onlyPrimary {
+        require(_store != address(0));
+        require(_registry != address(0));
         store = MerkluxStore(_store);
-    }
-
-    function initRegistry(address _registry) public onlyPrimary {
         registry = IMerkluxReducerRegistry(_registry);
     }
 

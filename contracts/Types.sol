@@ -97,17 +97,19 @@ library Chain {
 }
 
 library Action {
+    using ECDSA for bytes32;
     struct Object {
         bytes32 base;
         address from;
         uint256 actionNum;
         uint256 nonce;
         string action;
+        bool deployReducer;
         bytes data;
         bytes signature;
     }
 
-    function getActionHash(Object _action) internal pure returns (bytes32) {
+    function getActionHash(Object memory _action) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
                 _action.base,
@@ -118,5 +120,9 @@ library Action {
                 _action.data
             )
         );
+    }
+
+    function isSigned(Object memory _action) internal pure returns (bool) {
+        return _action.from == getActionHash(_action).toEthSignedMessageHash().recover(_action.signature);
     }
 }

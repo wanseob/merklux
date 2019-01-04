@@ -18,6 +18,7 @@ contract IMerkluxStoreForVM {
         address _from,
         uint256 _nonce,
         string _action,
+        bool _deployoReducer,
         bytes _data,
         bytes _sig
     ) public returns (bytes32);

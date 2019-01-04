@@ -66,8 +66,7 @@ contract MerkluxFactory is Secondary, MerkluxReducerRegistry {
         require(chain != address(0));
         require(store != address(0));
         MerkluxStore(store).transferPrimary(chain);
-        MerkluxChain(chain).initStore(store);
-        MerkluxChain(chain).initRegistry(address(this));
+        MerkluxChain(chain).init(store, address(this));
         MerkluxChain(chain).transferPrimary(msg.sender);
     }
 
