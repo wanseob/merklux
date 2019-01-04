@@ -21,7 +21,14 @@ library Block {
     }
 
     function isSealed(Object memory _block) internal pure returns (bool) {
-        return _block.sealer == getBlockHash(_block).toEthSignedMessageHash().recover(_block.signature);
+        if (_block.sealer == address(0)) {
+            //check genesis block
+            Object memory genesisBlock;
+            return getBlockHash(_block) == getBlockHash(genesisBlock);
+        } else {
+            return _block.sealer == getBlockHash(_block).toEthSignedMessageHash().recover(_block.signature);
+        }
+
     }
 
     function getBlockHash(Object memory _block) internal pure returns (bytes32) {
