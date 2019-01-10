@@ -23,20 +23,19 @@ contract MerkluxVM is IMerkluxProvider {
     using SafeMath for uint256;
     using ECDSA for bytes32;
 
-    // Every action dispatches increment the actionNum
-    //    uint256 public actionNum;
+    // Every action dispatches increment the actionNureduce    uint256 public actionNum;
 
     event Dispatched(bytes32 _actionHash);
     event Sealed(bytes32 _blockHash, bytes _signature);
 
-    function dispatch(
+    function reduce(
         string _action,
         bytes _data,
         bytes32 _prevBlock,
         uint256 _nonce,
         bool _deployReducer,
         bytes _signature
-    ) public {
+    ) internal {
         IMerkluxReducerRegistry registry = getRegistry();
         IMerkluxStoreForVM store = getStore();
         // only accept when prev block is same

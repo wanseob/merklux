@@ -9,7 +9,6 @@ contract MerkluxCase is Secondary, MerkluxVM {
 
     enum Task {
         INIT_BY_CONTRACT,
-        OPEN_CASE,
         SUBMIT_ORIGINAL_BLOCK,
         SUBMIT_TARGET_BLOCK,
         SUBMIT_REFERENCE_DATA,
@@ -26,7 +25,7 @@ contract MerkluxCase is Secondary, MerkluxVM {
     bytes32 public target;
     uint256 public deadline;
     bool public hasResult;
-    bool private result;
+    bool public result;
     Block.Object private originalBlock;
     Block.Object private targetBlock;
     Roles.Role private attorneys;
@@ -49,10 +48,8 @@ contract MerkluxCase is Secondary, MerkluxVM {
     }
 
     modifier task(Task _task) {
-        require(!todos[uint(_task)]);
         _;
         _done(_task);
-        emit TaskDone(_task);
     }
 
     /**
@@ -67,7 +64,15 @@ contract MerkluxCase is Secondary, MerkluxVM {
     constructor() public Secondary() {
     }
 
-    function init(address _store, address _registry, uint256 _duration)
+    function init(
+        address _store,
+        address _registry,
+        uint256 _duration,
+        bytes32 _original,
+        bytes32 _target,
+        address _defendant,
+        function(bytes32, bytes32, bool) external _onResult
+    )
     public
     onlyPrimary
     task(Task.INIT_BY_CONTRACT)
@@ -76,18 +81,11 @@ contract MerkluxCase is Secondary, MerkluxVM {
         require(_registry != address(0));
         store = MerkluxStoreForCase(_store);
         registry = IMerkluxReducerRegistry(_registry);
-        deadline = now + _duration;
-    }
-
-    function openCase(bytes32 _original, bytes32 _target, address _defendant)
-    public
-    onlyPrimary
-    task(Task.OPEN_CASE)
-    hasPredecessor(Task.INIT_BY_CONTRACT)
-    {
+        deadline = _duration.add(now);
         original = _original;
         target = _target;
         defendant = _defendant;
+        onResult = _onResult;
     }
 
     function appoint(address _attorney) public onlyDefendant {
@@ -115,7 +113,7 @@ contract MerkluxCase is Secondary, MerkluxVM {
     )
     public
     onlyDefendant
-    hasPredecessor(Task.OPEN_CASE)
+    hasPredecessor(Task.INIT_BY_CONTRACT)
     task(Task.SUBMIT_ORIGINAL_BLOCK)
     {
         Block.Object memory _block = Block.Object(
@@ -132,6 +130,8 @@ contract MerkluxCase is Secondary, MerkluxVM {
         originalBlock = _block;
         currentActionNum = _actionNum;
         store.setActionNum(_actionNum);
+        store.initialize(_state);
+        chain.addBlock(_block);
     }
 
     function submitTargetBlock(
@@ -157,18 +157,28 @@ contract MerkluxCase is Secondary, MerkluxVM {
             _sealer,
             _signature
         );
-        require(_block.getBlockHash() == original);
+        require(_block.getBlockHash() == target);
         require(_block.isSealed());
         targetBlock = _block;
     }
 
-    function submitReference(bytes key, bytes value, uint branchMask, bytes32[] siblings)
+    function submitReference(bytes _key, bytes _value, uint _branchMask, bytes32[] _siblings)
     public
     onlyDefendant
     hasPredecessor(Task.SUBMIT_TARGET_BLOCK)
     subTask(Task.SUBMIT_REFERENCE_DATA)
     {
-        store.commitBranch(key, value, branchMask, siblings);
+        store.commitBranch(_key, _value, _branchMask, _siblings);
+        if (_key[0] == byte(38)) {
+            // It is a reducer
+            bytes32 reducerHash;
+            for (uint i = 0; i < 32; i++) {
+                reducerHash |= bytes32(_value[i] & 0xFF) >> (i * 8);
+            }
+
+            address deployedReducer = address(registry.getReducer(reducerHash));
+            store.registerDeployedReducer(deployedReducer);
+        }
         if (store.getReferenceRoot() == targetBlock.references) {
             _done(Task.SUBMIT_REFERENCE_DATA);
         }
@@ -209,9 +219,9 @@ contract MerkluxCase is Secondary, MerkluxVM {
     hasPredecessor(Task.SUBMIT_REFERENCE_DATA)
     {
         require(currentActionNum < targetBlock.actionNum);
-        Action.Object memory actionObj = actions[currentActionNum];
+        Action.Object storage actionObj = actions[currentActionNum];
         require(isSubmitted(currentActionNum));
-        dispatch(
+        super.reduce(
             actionObj.action,
             actionObj.data,
             actionObj.base,
@@ -245,7 +255,9 @@ contract MerkluxCase is Secondary, MerkluxVM {
     }
 
     function _done(Task _task) private {
+        require(!todos[uint(_task)]);
         todos[uint(_task)] = true;
+        emit TaskDone(_task);
     }
 
     function getChain() internal view returns (Chain.Object storage) {

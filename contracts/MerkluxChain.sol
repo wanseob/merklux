@@ -37,7 +37,7 @@ contract MerkluxChain is Secondary, MerkluxVM {
         bool _deployReducer,
         bytes _signature
     ) public onlyPrimary {
-        super.dispatch(_action, _data, _prevBlock, _nonce, _deployReducer, _signature);
+        super.reduce(_action, _data, _prevBlock, _nonce, _deployReducer, _signature);
     }
 
     function makeAction(
@@ -57,6 +57,10 @@ contract MerkluxChain is Secondary, MerkluxVM {
                 nonce,
                 _deployReducer
             ));
+    }
+
+    function getLastBlock() public view returns (bytes32) {
+        return chain.getLastBlockHash();
     }
 
     function getChain() internal view returns (Chain.Object storage) {

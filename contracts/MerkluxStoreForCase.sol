@@ -46,6 +46,10 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     constructor() public Secondary() {
     }
 
+    function initialize(bytes32 _stateRoot) public onlyPrimary {
+        stateTree.initialize(_stateRoot);
+    }
+
     function setActionNum(uint256 _actionNum) public onlyPrimary {
         require(actionNum == 0);
         actionNum = _actionNum;
@@ -57,6 +61,13 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
             references.push(_key);
             referenceTree.insert(_key, EXIST);
         }
+    }
+
+    event RegReducer();
+
+    function registerDeployedReducer(address _reducer) public onlyPrimary {
+        reducers.add(_reducer);
+        emit RegReducer();
     }
 
     function deployReducer(IMerkluxReducerRegistry _registry, string _action, bytes _data) public onlyPrimary {

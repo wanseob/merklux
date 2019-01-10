@@ -136,11 +136,12 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         return stateTree.get(_key);
     }
 
-    function getProof(bytes _key) public view returns (uint branchMask, bytes32[] _siblings) {
-        return stateTree.getProof(_key);
+    function getProof(bytes _key) public view returns (bytes _value, uint _branchMask, bytes32[] _siblings) {
+        (_branchMask, _siblings) = stateTree.getProof(_key);
+        _value = stateTree.get(_key);
     }
 
-    function getActionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
+    function getActionProof(bytes32 actionHash) public view returns (uint _branchMask, bytes32[] _siblings) {
         return actionTree.getProof(abi.encodePacked(actionHash));
     }
 

@@ -119,12 +119,11 @@ library Action {
     function getActionHash(Object memory _action) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                _action.base,
-                _action.from,
-                _action.actionNum,
-                _action.nonce,
                 _action.action,
-                _action.data
+                _action.data,
+                _action.base,
+                _action.nonce,
+                _action.deployReducer
             )
         );
     }
