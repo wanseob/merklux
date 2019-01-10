@@ -37,130 +37,128 @@ contract('MerkluxCase', async ([_, operator, sealer, accuser, user]) => {
     await plasmaNet.close(() => {})
   })
 
-  describe('Case for genesis block and the first sealed block', async () => {
-    it('should create a case with parent hash and child hash', async () => {
-      let blockA = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockA)
-      let deployed = await initiateCase(
-        caseManager,
-        plasma.result.hashOfBlockA,
-        blockA._previousBlock,
-        600,
-        sealer,
-        accuser
-      )
-      let merkluxCase = await MerkluxCase.at(deployed.merkluxCase)
-      await merkluxCase.submitOriginalBlock(
-        ZERO,
-        0,
-        ZERO,
-        ZERO,
-        ZERO,
-        ZERO_ADDRESS,
-        '0x',
-        { from: sealer }
-      )
+  it('should create a case with parent hash and child hash', async () => {
+    let blockA = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockA)
+    let deployed = await initiateCase(
+      caseManager,
+      plasma.result.hashOfBlockA,
+      blockA._previousBlock,
+      600,
+      sealer,
+      accuser
+    )
+    let merkluxCase = await MerkluxCase.at(deployed.merkluxCase)
+    await merkluxCase.submitOriginalBlock(
+      ZERO,
+      0,
+      ZERO,
+      ZERO,
+      ZERO,
+      ZERO_ADDRESS,
+      '0x',
+      { from: sealer }
+    )
 
-      await merkluxCase.submitTargetBlock(
-        blockA._previousBlock,
-        blockA._actionNum.toNumber(),
-        blockA._state,
-        blockA._references,
-        blockA._actions,
-        blockA._sealer,
-        blockA._signature,
+    await merkluxCase.submitTargetBlock(
+      blockA._previousBlock,
+      blockA._actionNum.toNumber(),
+      blockA._state,
+      blockA._references,
+      blockA._actions,
+      blockA._sealer,
+      blockA._signature,
+      { from: sealer }
+    )
+    let { references, actions } = await getEvidence(
+      plasmaNet,
+      plasma.contract.merkluxStore,
+      plasma.result.genesis,
+      plasma.result.blockNumberA,
+      user
+    )
+    for (let reference of references) {
+      await merkluxCase.submitReference(
+        reference._key,
+        reference._value,
+        reference._branchMask,
+        reference._siblings,
         { from: sealer }
       )
-      let { references, actions } = await getEvidence(
-        plasmaNet,
-        plasma.contract.merkluxStore,
-        plasma.result.genesis,
-        plasma.result.blockNumberA,
-        user
-      )
-      for (let reference of references) {
-        await merkluxCase.submitReference(
-          reference._key,
-          reference._value,
-          reference._branchMask,
-          reference._siblings,
-          { from: sealer }
-        )
-      }
-    })
+    }
+  })
 
-    it('should create a case with parent hash and child hash', async () => {
-      let blockA = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockA)
-      let blockB = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockB)
-      let deployed = await initiateCase(
-        caseManager,
-        plasma.result.hashOfBlockB,
-        blockB._previousBlock,
-        600,
-        sealer,
-        accuser
-      )
-      let merkluxCase = await MerkluxCase.at(deployed.merkluxCase)
-      await merkluxCase.submitOriginalBlock(
-        blockA._previousBlock,
-        blockA._actionNum.toNumber(),
-        blockA._state,
-        blockA._references,
-        blockA._actions,
-        blockA._sealer,
-        blockA._signature,
+  it('should create a case with parent hash and child hash', async () => {
+    let blockA = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockA)
+    let blockB = await plasma.contract.merkluxChain.getBlock(plasma.result.hashOfBlockB)
+    let deployed = await initiateCase(
+      caseManager,
+      plasma.result.hashOfBlockB,
+      blockB._previousBlock,
+      600,
+      sealer,
+      accuser
+    )
+    let merkluxCase = await MerkluxCase.at(deployed.merkluxCase)
+    await merkluxCase.submitOriginalBlock(
+      blockA._previousBlock,
+      blockA._actionNum.toNumber(),
+      blockA._state,
+      blockA._references,
+      blockA._actions,
+      blockA._sealer,
+      blockA._signature,
+      { from: sealer }
+    )
+    await merkluxCase.submitTargetBlock(
+      blockB._previousBlock,
+      blockB._actionNum.toNumber(),
+      blockB._state,
+      blockB._references,
+      blockB._actions,
+      blockB._sealer,
+      blockB._signature,
+      { from: sealer }
+    )
+    let { references, actions } = await getEvidence(
+      plasmaNet,
+      plasma.contract.merkluxStore,
+      plasma.result.blockNumberA,
+      plasma.result.blockNumberB,
+      user
+    )
+    for (let reference of references) {
+      await merkluxCase.submitReference(
+        reference._key,
+        reference._value,
+        reference._branchMask,
+        reference._siblings,
         { from: sealer }
       )
-      await merkluxCase.submitTargetBlock(
-        blockB._previousBlock,
-        blockB._actionNum.toNumber(),
-        blockB._state,
-        blockB._references,
-        blockB._actions,
-        blockB._sealer,
-        blockB._signature,
+    }
+    for (let action of actions) {
+      await merkluxCase.submitAction(
+        action.base,
+        action.from,
+        action.actionNum.toNumber(),
+        action.nonce,
+        action.action,
+        action.deployReducer,
+        action.data,
+        action.signature,
         { from: sealer }
       )
-      let { references, actions } = await getEvidence(
-        plasmaNet,
-        plasma.contract.merkluxStore,
-        plasma.result.blockNumberA,
-        plasma.result.blockNumberB,
-        user
-      )
-      for (let reference of references) {
-        await merkluxCase.submitReference(
-          reference._key,
-          reference._value,
-          reference._branchMask,
-          reference._siblings,
-          { from: sealer }
-        )
+    }
+    while (true) {
+      try {
+        await merkluxCase.runAction({ from: sealer })
+      } catch (e) {
+        break
       }
-      for (let action of actions) {
-        await merkluxCase.submitAction(
-          action.base,
-          action.from,
-          action.actionNum.toNumber(),
-          action.nonce,
-          action.action,
-          action.deployReducer,
-          action.data,
-          action.signature,
-          { from: sealer }
-        )
-      }
-      while (true) {
-        try {
-          await merkluxCase.runAction({ from: sealer })
-        } catch (e) {
-          break
-        }
-      }
-      let caseResult = await merkluxCase.result.call()
-      let caseResultAtManager = await caseManager.cases.call(plasma.result.hashOfBlockB)
-      caseResult.should.equal(true)
-      caseResultAtManager.result.should.equal(true)
-    })
+    }
+    let caseResult = await merkluxCase.result.call()
+    let caseResultAtManager = await caseManager.cases.call(plasma.result.hashOfBlockB)
+    caseResult.should.equal(true)
+    caseResultAtManager.result.should.equal(true)
   })
 })
 
