@@ -23,8 +23,8 @@ contract MerkluxChain is Secondary, MerkluxVM {
     }
 
     function init(address _store, address _registry) public onlyPrimary {
-        require(_store != address(0));
-        require(_registry != address(0));
+        require(_store != address(0), "MerkluxChain: invalid store address");
+        require(_registry != address(0), "MerkluxChain: invalid registry address");
         store = MerkluxStore(_store);
         registry = IMerkluxReducerRegistry(_registry);
     }

@@ -39,7 +39,7 @@ contract MerkluxVM is IMerkluxProvider {
         IMerkluxReducerRegistry registry = getRegistry();
         IMerkluxStoreForVM store = getStore();
         // only accept when prev block is same
-        require(_isRecent(_prevBlock));
+        require(_isRecent(_prevBlock), "MerkluxVM: Not a recent tx, update prev block");
         // check the signature
         address _from = keccak256(abi.encodePacked(
                 _action,
@@ -80,7 +80,7 @@ contract MerkluxVM is IMerkluxProvider {
 
         candidate.signature = _signature;
         // Check signature
-        require(candidate.isSealed());
+        require(candidate.isSealed(), "MerkluxVM: Signature is invalid");
         bytes32 blockHash = candidate.getBlockHash();
         chain.addBlock(candidate);
         emit Sealed(blockHash, _signature);
@@ -92,6 +92,7 @@ contract MerkluxVM is IMerkluxProvider {
     }
 
     function getDataForNewAction() public view returns (bytes32 prevBlockHash, uint256 nonce) {
+
         Chain.Object storage chain = getChain();
         IMerkluxStoreForVM store = getStore();
         return (chain.getLastBlockHash(), store.getAccountActionNonce(msg.sender).add(1));

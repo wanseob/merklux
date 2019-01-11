@@ -34,7 +34,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     Action.Object[] public actions;
 
     modifier onlyReducers() {
-        require(msg.sender == primary() || reducers.has(msg.sender));
+        require(msg.sender == primary() || reducers.has(msg.sender), "MerkluxStore: only allowed for reducers");
         _;
     }
 
@@ -46,7 +46,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         bytes32 reducerKey;
         address deployedAddress;
         (reducerKey, deployedAddress) = _registry.registerReducer(_data);
-        require(bytes(_action).length != 0);
+        require(bytes(_action).length != 0, "MerkluxStore: action should not be a null");
         bytes memory actionKey = _appendPrefix(_action);
         _updateState(actionKey, abi.encodePacked(reducerKey), true);
         reducers.add(deployedAddress);
@@ -55,7 +55,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     function runReducer(IMerkluxReducerRegistry _registry, address _sender, string _action, bytes _data) public onlyPrimary {
         MerkluxReducer reducer = _retrieveReducer(_registry, _action);
         // Not a registered reducer
-        require(address(reducer) != address(0));
+        require(address(reducer) != address(0), "MerkluxStore: reducer does not exist");
 
         bytes memory rlpEncodedPairs;
 
@@ -64,7 +64,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         RLPReader.RLPItem[] memory pairs = rlpEncodedPairs.toRlpItem().toList();
         // length should be an even number
         // Reducer should returns rlp encoded list which length is an even number
-        require(pairs.length & 1 == 0);
+        require(pairs.length & 1 == 0, "MerkluxStore: reducer should return rlp encoded list");
 
         // Update key value pairs
         for (uint i = 0; i < (pairs.length / 2); i++) {
@@ -73,7 +73,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     }
 
     function increaseAccountActionNonce(address _user, uint256 _nonce) public onlyPrimary {
-        require(nonce[_user] < _nonce);
+        require(nonce[_user] < _nonce, "MerkluxStore: invalid nonce");
         if (nonce[_user] == 0) {
             callers.push(_user);
         }
@@ -182,7 +182,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     function _updateState(bytes _key, bytes _value, bool _isReducer) private {
         if (!_isReducer && _key.length > 1) {
             // Reducer cannot be overwritten through this function
-            require(!(_key[0] == byte(0) && _key[1] == byte(38)));
+            require(!(_key[0] == byte(0) && _key[1] == byte(38)), "MerkluxStore: & is only allowed for reducers");
         }
         _set(_key, _value);
     }
