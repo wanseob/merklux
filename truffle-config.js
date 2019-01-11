@@ -20,10 +20,11 @@ module.exports = {
     development: {
       host: 'localhost',
       port: 8545,
-      network_id: '*'
+      network_id: '*',
     }
   },
   solc: {
+    version: "^0.4.25",
     optimizer: {
       enabled: true,
       runs: 500

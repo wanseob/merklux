@@ -22,13 +22,13 @@ kill_ganache() {
 
 # Compile contracts
 compile() {
-  truffle compile --all
+  ./node_modules/.bin/truffle compile --all
   [ $? -ne 0 ] && exit 1
 }
 
 # Run private block-chain for test cases
 run_ganache() {
-  ganache-cli > /dev/null & pid=$!
+  ./node_modules/.bin/ganache-cli -s merklux > /dev/null & pid=$!
   if ps -p $pid > /dev/null
   then
     echo "Running ganache..."
@@ -40,13 +40,13 @@ run_ganache() {
 
 # Deploy contracts on the block-chain for testing
 migrate() {
-  truffle migrate --network development
+  ./node_modules/.bin/truffle migrate --network development
   [ $? -ne 0 ] && exit 1
 }
 
 # Run test cases with truffle
 run_test() {
-  truffle test --network development
+  ./node_modules/.bin/truffle test --network development
   [ $? -ne 0 ] && exit 1
 }
 

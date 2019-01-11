@@ -18,24 +18,98 @@
 
 ## What is Merklux
 
-Merklux is a merkleized unidirectional data flow for state verification across multiple chains. 
-Originally, it is designed to provide a way to verify state transition of the plasma chain on the root chain. 
-While we can reduce the transaction costs by submitting only the block headers of the plasma chain, we don't have a way to verify the plasma chain's state transition on the root chain.
-It is because the nodes on the root chain cannot access the state of the plasma chain.
-Using Merklux, we can reenact the state transition of the plasma chain on the root chain.
-And for an efficiency Merklux manages the states with sharded namespaces and it reduces the transition costs for state transition verification.
+Merklux is a framework for general state plasma dApp. 
+This uses merkleized unidirectional data flow for state verification across multiple chains.
 
-And Merklux supports an accusatorial system to guarantee the state of the side chain.
-[Plasma Plant](https://github.com/commitground/plasma-plant) is an implemenation of the plasma which uses an accusatorial system with Merklux.
+For more detail information check [https://ethresear.ch/t/merklux-plasma-plant](https://ethresear.ch/t/merklux-plasma-plant).  
 
-## Pre-requisites
+## Tutorial
 
+1. Set your smart contract development environment (We use truffle as an example)
 ```bash
 npm install -g truffle
-npm install -g ganache
-npm install
+npm install -g ganache-cli
+
+mkdir your-plasma-dapp && cd your-plasma-dapp
+truffle unbox blueprint
+npm i merklux@next
 ```
 
+2. Write a reducer
+```solidity
+// contracts/YourReducer.sol
+pragma solidity ^0.4.24;
+
+import "merklux/contracts/Merklux.sol";
+import "merklux/contracts/MerkluxStore.sol";
+import "merklux/contracts/MerkluxReducer.sol";
+
+contract YourReducer is MerkluxReducer {
+    function reduce(
+        MerkluxStore _tree,
+        address _from,
+        bytes _data
+    ) public view returns (
+        bytes keys,
+        bytes values,
+        bytes32[] references
+    ) {
+        // Write your reduce logic here
+    }
+}
+```
+
+3. Deploy Merklux onto your plasma chain and also register your reducer
+```javascript
+// migrations/2_deploy_merklux_app.js
+
+const Merklux = artifacts.require('Merklux')
+const YourReducer = artifacts.require('YourReducer')
+const STORE_KEY = web3.sha3('namespace', { encoding: 'hex' })
+module.exports = function (deployer) {
+  deployer.deploy(Merklux).then(async (merklux) => {
+    await merklux.newStore(STORE_KEY)
+    await merklux.setReducer(
+      STORE_KEY, // namespace
+      'actionName', // action name
+      YourReducer.bytecode // reducer's bytecode
+    )
+  })
+}
+```
+
+4. Test your application
+```javascript
+const Merklux = artifacts.require('Merklux')
+const rlp = require('rlp')
+
+const STORE_KEY = web3.sha3('namespace', { encoding: 'hex' })
+const rlpEncode = (data) => '0x' + rlp.encode(data).toString('hex')
+
+contract('Merklux', async ([deployer, ...accounts]) => {
+  let merklux
+  before(async () => {
+    merklux = await Merklux.deployed()
+  })
+  it('should update its value by the reducer information', async () => {
+    const VALUE_TO_INCREASE = 8
+    await merklux.dispatch(STORE_KEY, 'increaseBalance', rlpEncode(VALUE_TO_INCREASE), { from: deployer })
+    let updatedValue = await merklux.get(STORE_KEY, deployer)
+    assert.equal(web3.toDecimal(updatedValue), VALUE_TO_INCREASE)
+  })
+})
+```
+
+5. Migrate & test
+```bash
+$ truffle develop
+> migrate
+...
+> test
+...
+```
+
+Done! Now you wrote a verifiable general state plasma dApp.
 
 ## Demo(work in progress)
 
