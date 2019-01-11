@@ -1,52 +1,41 @@
 pragma solidity ^0.4.24;
 
-import "solidity-rlp/contracts/RLPReader.sol";
-import "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import "openzeppelin-solidity/contracts/access/Roles.sol";
-import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
-import "solidity-rlp/contracts/RLPReader.sol";
-import "./MerkluxStore.sol";
-import "./MerkluxReducer.sol";
-import "./MerkluxStoreForProof.sol";
-import "./MerkluxReducerRegistry.sol";
-import {Block, Transition} from "./Types.sol";
+import "./MerkluxChain.sol";
+import "./MerkluxStoreForCase.sol";
 
-
-contract MerkluxCase {
-    using Transition for Transition.Object;
-    using Block for Block.Object;
-    using Block for Block.Data;
+contract MerkluxCase is Secondary, MerkluxVM {
     using Roles for Roles.Role;
-    using RLPReader for RLPReader.RLPItem;
-    using SafeMath for uint256;
-    using RLPReader for bytes;
+    using Action for Action.Object;
 
     enum Task {
+        INIT_BY_CONTRACT,
         SUBMIT_ORIGINAL_BLOCK,
+        SUBMIT_TARGET_BLOCK,
         SUBMIT_REFERENCE_DATA,
         SUBMIT_STORE_DATA,
         SUBMIT_DISPATCHES
     }
 
+    MerkluxStoreForCase public store;
+    IMerkluxReducerRegistry public registry;
+    uint256 public currentActionNum;
     address public accuser;
     address public defendant;
     bytes32 public original;
     bytes32 public target;
+    uint256 public deadline;
+    bool public hasResult;
+    bool public result;
+    Block.Object private originalBlock;
+    Block.Object private targetBlock;
     Roles.Role private attorneys;
+    Chain.Object private chain;
+    function(bytes32, bytes32, bool) external onResult;
     mapping(uint => bool) todos;
-
-    uint256 public height;
-    MerkluxStoreForProof storeForProof;
-    MerkluxReducerRegistry registry;
-
-    mapping(uint256 => Transition.Object) transitions;
-
-    Block.Object originalBlock;
-    Block.Data originalBlockData;
-
-    mapping(bytes32 => bool) submittedReferences;
+    mapping(uint256 => Action.Object) actions;
 
     event TaskDone(Task _task);
+    event OnResult(bytes32 _original, bytes32 _target, bool _result);
 
     modifier hasPredecessor(Task _task) {
         require(todos[uint(_task)]);
@@ -59,10 +48,8 @@ contract MerkluxCase {
     }
 
     modifier task(Task _task) {
-        require(!todos[uint(_task)]);
         _;
         _done(_task);
-        emit TaskDone(_task);
     }
 
     /**
@@ -74,18 +61,31 @@ contract MerkluxCase {
         _;
     }
 
-    constructor(
-        bytes32 _originalRootHash,
-        bytes32 _targetRootHash,
+    constructor() public Secondary() {
+    }
+
+    function init(
+        address _store,
+        address _registry,
+        uint256 _duration,
+        bytes32 _original,
+        bytes32 _target,
         address _defendant,
-        address _reducerRegistry
-    ) public {
-        // Init status
-        original = _originalRootHash;
-        target = _targetRootHash;
+        function(bytes32, bytes32, bool) external _onResult
+    )
+    public
+    onlyPrimary
+    task(Task.INIT_BY_CONTRACT)
+    {
+        require(_store != address(0));
+        require(_registry != address(0));
+        store = MerkluxStoreForCase(_store);
+        registry = IMerkluxReducerRegistry(_registry);
+        deadline = _duration.add(now);
+        original = _original;
+        target = _target;
         defendant = _defendant;
-        accuser = msg.sender;
-        registry = MerkluxReducerRegistry(_reducerRegistry);
+        onResult = _onResult;
     }
 
     function appoint(address _attorney) public onlyDefendant {
@@ -102,115 +102,173 @@ contract MerkluxCase {
         selfdestruct(accuser);
     }
 
-    function submitBlockData(
+    function submitOriginalBlock(
         bytes32 _previousBlock,
-        uint256 _height,
-        bytes32 _store,
+        uint256 _actionNum,
+        bytes32 _state,
         bytes32 _references,
-        bytes32 _transitions,
+        bytes32 _actions,
         address _sealer,
         bytes _signature
-    ) public onlyDefendant task(Task.SUBMIT_ORIGINAL_BLOCK) {
-        originalBlock.previousBlock = _previousBlock;
-        originalBlock.height = _height;
-        originalBlock.store = _store;
-        originalBlock.references = _references;
-        originalBlock.transitions = _transitions;
-        originalBlock.sealer = _sealer;
-        originalBlock.signature = _signature;
-        require(originalBlock.getBlockHash() == original);
-        require(originalBlock.isSealed());
-        storeForProof = new MerkluxStoreForProof(_store);
-        height = _height;
+    )
+    public
+    onlyDefendant
+    hasPredecessor(Task.INIT_BY_CONTRACT)
+    task(Task.SUBMIT_ORIGINAL_BLOCK)
+    {
+        Block.Object memory _block = Block.Object(
+            _previousBlock,
+            _actionNum,
+            _state,
+            _references,
+            _actions,
+            _sealer,
+            _signature
+        );
+        require(_block.getBlockHash() == original);
+        require(_block.isSealed());
+        originalBlock = _block;
+        currentActionNum = _actionNum;
+        store.setActionNum(_actionNum);
+        store.initialize(_state);
+        chain.addBlock(_block);
     }
 
-    function submitReferredKeyData(
-        bytes32[] _references
-    ) public
+    function submitTargetBlock(
+        bytes32 _previousBlock,
+        uint256 _actionNum,
+        bytes32 _state,
+        bytes32 _references,
+        bytes32 _actions,
+        address _sealer,
+        bytes _signature
+    )
+    public
     onlyDefendant
     hasPredecessor(Task.SUBMIT_ORIGINAL_BLOCK)
-    task(Task.SUBMIT_REFERENCE_DATA)
+    task(Task.SUBMIT_TARGET_BLOCK)
     {
-        originalBlockData.references = _references;
-        require(originalBlockData.getReferenceRoot() == originalBlock.references);
+        Block.Object memory _block = Block.Object(
+            _previousBlock,
+            _actionNum,
+            _state,
+            _references,
+            _actions,
+            _sealer,
+            _signature
+        );
+        require(_block.getBlockHash() == target);
+        require(_block.isSealed());
+        targetBlock = _block;
     }
 
-    function submitBranch(
-        bytes _key,
-        bytes _value,
-        uint _branchMask,
-        bytes32[] _siblings
+    function submitReference(bytes _key, bytes _value, uint _branchMask, bytes32[] _siblings)
+    public
+    onlyDefendant
+    hasPredecessor(Task.SUBMIT_TARGET_BLOCK)
+    subTask(Task.SUBMIT_REFERENCE_DATA)
+    {
+        store.commitBranch(_key, _value, _branchMask, _siblings);
+        if (_key[0] == byte(38)) {
+            // It is a reducer
+            bytes32 reducerHash;
+            for (uint i = 0; i < 32; i++) {
+                reducerHash |= bytes32(_value[i] & 0xFF) >> (i * 8);
+            }
+
+            address deployedReducer = address(registry.getReducer(reducerHash));
+            store.registerDeployedReducer(deployedReducer);
+        }
+        if (store.getReferenceRoot() == targetBlock.references) {
+            _done(Task.SUBMIT_REFERENCE_DATA);
+        }
+    }
+
+    function submitAction(
+        bytes32 _prevBlock,
+        address _from,
+        uint256 _actionNum,
+        uint256 _nonce,
+        string _action,
+        bool _deployReducer,
+        bytes _data,
+        bytes _signature
     ) public
     onlyDefendant
     hasPredecessor(Task.SUBMIT_REFERENCE_DATA)
-    subTask(Task.SUBMIT_STORE_DATA)
     {
-        bytes32 _hashedKey = keccak256(_key);
-        require(!submittedReferences[_hashedKey]);
-        storeForProof.commitBranch(_key, _value, _branchMask, _siblings);
+        Action.Object memory action = Action.Object(
+            _prevBlock,
+            _from,
+            _actionNum,
+            _nonce,
+            _action,
+            _deployReducer,
+            _data,
+            _signature
+        );
+        require(
+            originalBlock.actionNum <= _actionNum &&
+            _actionNum < targetBlock.actionNum
+        );
+        require(action.isSigned());
+        actions[_actionNum] = action;
+    }
 
-        // Check it is completed to commit all branch data for the referred nodes
-        submittedReferences[_hashedKey] = true;
-        bool submittedAllReferredNodes = true;
-        for (uint i = 0; i < originalBlockData.references.length; i++) {
-            if (!submittedReferences[originalBlockData.references[i]]) {
-                submittedAllReferredNodes = false;
-                break;
-            }
-        }
-        if (submittedAllReferredNodes) {
-            _done(Task.SUBMIT_STORE_DATA);
-            emit TaskDone(Task.SUBMIT_STORE_DATA);
+    function runAction() public
+    hasPredecessor(Task.SUBMIT_REFERENCE_DATA)
+    {
+        require(currentActionNum < targetBlock.actionNum);
+        Action.Object storage actionObj = actions[currentActionNum];
+        require(isSubmitted(currentActionNum));
+        super.reduce(
+            actionObj.action,
+            actionObj.data,
+            actionObj.base,
+            actionObj.nonce,
+            actionObj.deployReducer,
+            actionObj.signature
+        );
+        currentActionNum = currentActionNum.add(1);
+        if (currentActionNum == targetBlock.actionNum) {
+            _complete();
         }
     }
 
-    function submitDispatch(
-      uint256 _height,
-      string _action,
-      bytes _data
-    ) public
-    onlyDefendant
-    hasPredecessor(Task.SUBMIT_STORE_DATA)
-    subTask(Task.SUBMIT_DISPATCHES)
-    {
-      require(height==_height);
-
-      MerkluxReducer reducer = registry.getReducer(storeForProof.getReducerKey(_action));
-
-      bytes memory rlpEncodedKeys;
-      bytes memory rlpEncodedValues;
-      bytes32[] memory referredKeys;
-      (rlpEncodedKeys, rlpEncodedValues, referredKeys) = reducer.reduce(storeForProof, msg.sender, _data);
-
-      // compare referred keys & submitted references
-      // (referredKeys);
-
-      RLPReader.RLPItem[] memory keys = rlpEncodedKeys.toRlpItem().toList();
-      RLPReader.RLPItem[] memory values = rlpEncodedValues.toRlpItem().toList();
-      require(keys.length == values.length);
-
-      for (uint i = 0; i < keys.length; i++) {
-        storeForProof.insert(keys[i].toBytes(), values[i].toBytes());
-      }
-
-      // Calculate first
-      height = height.add(1);
+    function isSubmitted(uint256 _actionNum) public view returns (bool) {
+        return actions[_actionNum].signature.length != 0;
     }
 
-    function isNeeded(bytes memory _key) hasPredecessor(Task.SUBMIT_REFERENCE_DATA) public view returns (bool) {
-        bytes32 _hashedKey = keccak256(_key);
-        for (uint i = 0; i < originalBlockData.references.length; i++) {
-            // If it is included in the referred key list
-            if (originalBlockData.references[i] == _hashedKey) {
-                // Check it is already submitted or not
-                return !submittedReferences[_hashedKey];
-            }
+    function close() public {
+        if (now > deadline) {
+            _complete();
         }
-        // It is not included in the referred key list
-        return false;
+    }
+
+    function _complete() private {
+        bool stateCheck = store.getStateRoot() == targetBlock.state;
+        bool actionCheck = store.getActionRoot() == targetBlock.actions;
+        hasResult = true;
+        result = stateCheck && actionCheck;
+        onResult(original, target, result);
+        emit OnResult(original, target, result);
     }
 
     function _done(Task _task) private {
+        require(!todos[uint(_task)]);
         todos[uint(_task)] = true;
+        emit TaskDone(_task);
+    }
+
+    function getChain() internal view returns (Chain.Object storage) {
+        return chain;
+    }
+
+    function getStore() internal view returns (IMerkluxStoreForVM) {
+        return store;
+    }
+
+    function getRegistry() internal view returns (IMerkluxReducerRegistry) {
+        return registry;
     }
 }

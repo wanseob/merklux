@@ -6,32 +6,22 @@ import "../../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 
 contract BalanceIncrease is MerkluxReducer {
     function reduce(
-        IMerkluxStore _tree,
+        IStateTree _tree,
         address _from,
-        bytes _data // rlp encoded params
-    ) public view returns (
-        bytes encodedKeys, // rlp encoded key values
-        bytes encodedValues, // rlp encoded key valuesTODO return as bytes[] after the solidity 0.5.0
-        bytes32[] referredNodes
+        bytes memory _encodedParams // rlp encoded params
+    ) public returns (
+        bytes memory _encodedPairs // rlp encoded key value pairs
     ) {
-        // Decode data with RLP decoder
-        uint amount = _data.toRlpItem().toUint();
-        // Check current state
+        // 1. Decode data with RLP decoder
+        uint amount = _encodedParams.toRlpItem().toUint();
+
+        // 2. Calculate
         bytes memory _senderKey = abi.encodePacked(_from);
-        uint currentAmount = _tree.get(_senderKey).toRlpItem().toUint();
+        uint currentAmount = _tree.read(_senderKey).toRlpItem().toUint();
 
-        // Prepare arrays to return
-        bytes[] memory keys = new bytes[](1);
-        bytes[] memory values = new bytes[](1);
-
-        // Encode key-value pairs
-        keys[0] = encodeBytes(_senderKey);
-        values[0] = encodeUint(amount + currentAmount);
-
-        // Encode list
-        encodedKeys = keys.encodeList();
-        encodedValues = values.encodeList();
-        referredNodes = new bytes32[](1);
-        referredNodes[0] = keccak256(_senderKey);
+        // 3. Return pairs
+        ReducerUtil.RlpData memory pairsToReturn;
+        pairsToReturn = pairsToReturn.addUint(_senderKey, amount + currentAmount);
+        return pairsToReturn.encode();
     }
 }

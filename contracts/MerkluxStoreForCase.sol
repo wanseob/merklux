@@ -1,21 +1,25 @@
 pragma solidity ^0.4.24;
 
+import {PartialMerkleTree} from "solidity-partial-tree/contracts/tree.sol";
 import {PatriciaTree} from "solidity-patricia-tree/contracts/tree.sol";
 import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/access/Roles.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "solidity-rlp/contracts/RLPReader.sol";
+import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 import "./interfaces/IStateTree.sol";
 import "./interfaces/IMerkluxReducerRegistry.sol";
 import "./interfaces/IMerkluxStoreForVM.sol";
 import {Action} from "./Types.sol";
 
+
 /**
  * @title MerkluxTree data structure for
  *
  */
-contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
+contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     using SafeMath for uint256;
+    using PartialMerkleTree for PartialMerkleTree.Tree;
     using PatriciaTree for PatriciaTree.Tree;
     using Roles for Roles.Role;
     using RLPReader for RLPReader.RLPItem;
@@ -25,13 +29,14 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
 
     uint256 private actionNum;
     Roles.Role private reducers;
-    PatriciaTree.Tree private stateTree;
+    PartialMerkleTree.Tree private stateTree;
     PatriciaTree.Tree private referenceTree;
     PatriciaTree.Tree private actionTree;
     address[] private callers;
     mapping(address => uint256) private nonce;
     bytes[] public references;
     Action.Object[] public actions;
+
 
     modifier onlyReducers() {
         require(msg.sender == primary() || reducers.has(msg.sender));
@@ -41,6 +46,29 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     constructor() public Secondary() {
     }
 
+    function initialize(bytes32 _stateRoot) public onlyPrimary {
+        stateTree.initialize(_stateRoot);
+    }
+
+    function setActionNum(uint256 _actionNum) public onlyPrimary {
+        require(actionNum == 0);
+        actionNum = _actionNum;
+    }
+
+    function commitBranch(bytes _key, bytes _value, uint _branchMask, bytes32[] _siblings) public onlyPrimary {
+        stateTree.commitBranch(_key, _value, _branchMask, _siblings);
+        if (referenceTree.get(_key).length == 0) {
+            references.push(_key);
+            referenceTree.insert(_key, EXIST);
+        }
+    }
+
+    event RegReducer();
+
+    function registerDeployedReducer(address _reducer) public onlyPrimary {
+        reducers.add(_reducer);
+        emit RegReducer();
+    }
 
     function deployReducer(IMerkluxReducerRegistry _registry, string _action, bytes _data) public onlyPrimary {
         bytes32 reducerKey;
@@ -136,12 +164,11 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         return stateTree.get(_key);
     }
 
-    function getProof(bytes _key) public view returns (bytes _value, uint _branchMask, bytes32[] _siblings) {
-        (_branchMask, _siblings) = stateTree.getProof(_key);
-        _value = stateTree.get(_key);
+    function getProof(bytes _key) public view returns (uint branchMask, bytes32[] _siblings) {
+        return stateTree.getProof(_key);
     }
 
-    function getActionProof(bytes32 actionHash) public view returns (uint _branchMask, bytes32[] _siblings) {
+    function getActionProof(bytes32 actionHash) public view returns (uint branchMask, bytes32[] _siblings) {
         return actionTree.getProof(abi.encodePacked(actionHash));
     }
 
@@ -216,3 +243,4 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
         for (uint i = 1; i < _actionKey.length; i++) _actionKey[i] = _a[i - 1];
     }
 }
+
