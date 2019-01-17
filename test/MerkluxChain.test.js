@@ -1,7 +1,6 @@
 const chai = require('chai')
-const assert = chai.assert
 const BigNumber = web3.BigNumber
-const should = chai.use(require('chai-bignumber')(BigNumber)).should()
+chai.use(require('chai-bignumber')(BigNumber)).should()
 const MerkluxChain = artifacts.require('MerkluxChain')
 const MerkluxFactory = artifacts.require('MerkluxFactory')
 const MerkluxStore = artifacts.require('MerkluxStore')
@@ -34,7 +33,6 @@ contract('MerkluxChain', async ([_, operator, user, sealer]) => {
     })
   })
   describe('seal()', async () => {
-    let hashToSeal
     it('should seal a block and increase chain height', async () => {
       await deployReducer(merkluxChain, SampleReducer.bytecode, operator)
       const VALUE_TO_INCREASE = 8
@@ -102,7 +100,7 @@ let increaseBalance = async (chain, increment, operator, user) => {
     { from: user }
   )
   let signature = await web3.eth.sign(actionHash, user)
-  let result = await chain.dispatch(
+  await chain.dispatch(
     'increaseBalance',
     rlpEncode(increment),
     prevBlockHash,

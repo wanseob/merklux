@@ -1,14 +1,10 @@
 const chai = require('chai')
-const assert = chai.assert
 const BigNumber = web3.BigNumber
-const should = chai.use(require('chai-bignumber')(BigNumber)).should()
+chai.use(require('chai-bignumber')(BigNumber)).should()
 const Ganache = require('ganache-core')
 const Web3 = require('web3')
-const MerkluxChain = artifacts.require('MerkluxChain')
 const MerkluxCase = artifacts.require('MerkluxCase')
-const MerkluxFactory = artifacts.require('MerkluxFactory')
 const MerkluxCaseManager = artifacts.require('MerkluxCaseManager')
-const MerkluxStore = artifacts.require('MerkluxStore')
 const MerkluxStoreForCase = artifacts.require('MerkluxStoreForCase')
 const SampleReducer = artifacts.require('BalanceIncrease')
 const { rlpEncode } = require('./utils')
@@ -69,7 +65,7 @@ contract('MerkluxCase', async ([_, operator, sealer, accuser, user]) => {
       blockA._signature,
       { from: sealer }
     )
-    let { references, actions } = await getEvidence(
+    let { references } = await getEvidence(
       plasmaNet,
       plasma.contract.merkluxStore,
       plasma.result.genesis,
@@ -241,7 +237,7 @@ let increaseBalance = async (chain, increment, operator, user) => {
     { from: user }
   )
   let signature = await web3.eth.sign(actionHash, user)
-  let result = await chain.dispatch(
+  await chain.dispatch(
     'increaseBalance',
     rlpEncode(increment),
     prevBlockHash,
