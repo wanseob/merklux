@@ -6,7 +6,6 @@ import "openzeppelin-solidity/contracts/ownership/Secondary.sol";
 import "openzeppelin-solidity/contracts/access/Roles.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "solidity-rlp/contracts/RLPReader.sol";
-import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 import "./interfaces/IStateTree.sol";
 import "./interfaces/IMerkluxReducerRegistry.sol";
 import "./interfaces/IMerkluxStoreForVM.sol";

@@ -1,6 +1,5 @@
 pragma solidity ^0.4.0;
-
-import "../../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
+import "../libs/bakaoh/solidity-rlp-encode/contracts/RLPEncode.sol";
 
 library ReducerUtil {
     using RLPEncode for bytes[];
