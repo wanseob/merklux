@@ -21,7 +21,7 @@ contract IMerkluxStoreForVM {
         bool _deployoReducer,
         bytes _data,
         bytes _sig
-    ) public returns (bytes32);
+    ) public returns (bytes32) {}
 
     function resetCurrentData() public;
 
