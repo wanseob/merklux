@@ -38,12 +38,12 @@ contract MerkluxCase is Secondary, MerkluxVM {
     event OnResult(bytes32 _original, bytes32 _target, bool _result);
 
     modifier hasPredecessor(Task _task) {
-        require(todos[uint(_task)]);
+        require(todos[uint(_task)], "Predecessor task is not completed");
         _;
     }
 
     modifier subTask(Task _task) {
-        require(!todos[uint(_task)]);
+        require(!todos[uint(_task)], "Task is already finished");
         _;
     }
 
@@ -57,7 +57,7 @@ contract MerkluxCase is Secondary, MerkluxVM {
     * If the defendant appoint attorneys, then they are also allowed to call this function
     */
     modifier onlyDefendant() {
-        require(msg.sender == defendant || attorneys.has(msg.sender));
+        require(msg.sender == defendant || attorneys.has(msg.sender), "Only the defendant or attorneys can call this method");
         _;
     }
 
@@ -77,8 +77,8 @@ contract MerkluxCase is Secondary, MerkluxVM {
     onlyPrimary
     task(Task.INIT_BY_CONTRACT)
     {
-        require(_store != address(0));
-        require(_registry != address(0));
+        require(_store != address(0), "Not a valid store address");
+        require(_registry != address(0), "Not a valid registry address");
         store = MerkluxStoreForCase(_store);
         registry = IMerkluxReducerRegistry(_registry);
         deadline = _duration.add(now);
@@ -97,7 +97,7 @@ contract MerkluxCase is Secondary, MerkluxVM {
     }
 
     function destroy() external {
-        require(msg.sender == accuser);
+        require(msg.sender == accuser, "Only the accuser can destruct this case");
         // TODO When it has the fraud state, innocent state, or on_going state
         selfdestruct(accuser);
     }
@@ -125,8 +125,8 @@ contract MerkluxCase is Secondary, MerkluxVM {
             _sealer,
             _signature
         );
-        require(_block.getBlockHash() == original);
-        require(_block.isSealed());
+        require(_block.getBlockHash() == original, "Submitted block has different hash with the original block");
+        require(_block.isSealed(), "Signature for the original block is invalid");
         originalBlock = _block;
         currentActionNum = _actionNum;
         store.setActionNum(_actionNum);
@@ -157,8 +157,8 @@ contract MerkluxCase is Secondary, MerkluxVM {
             _sealer,
             _signature
         );
-        require(_block.getBlockHash() == target);
-        require(_block.isSealed());
+        require(_block.getBlockHash() == target, "Submitted block has different hash with the target block");
+        require(_block.isSealed(), "Signature for the target block is invalid");
         targetBlock = _block;
     }
 
@@ -209,18 +209,19 @@ contract MerkluxCase is Secondary, MerkluxVM {
         );
         require(
             originalBlock.actionNum <= _actionNum &&
-            _actionNum < targetBlock.actionNum
+            _actionNum < targetBlock.actionNum,
+            "Action number is not in the range"
         );
-        require(action.isSigned());
+        require(action.isSigned(), "Signature for the action is invalid");
         actions[_actionNum] = action;
     }
 
     function runAction() public
     hasPredecessor(Task.SUBMIT_REFERENCE_DATA)
     {
-        require(currentActionNum < targetBlock.actionNum);
+        require(currentActionNum < targetBlock.actionNum, "Action number is above the target block's action number");
         Action.Object storage actionObj = actions[currentActionNum];
-        require(isSubmitted(currentActionNum));
+        require(isSubmitted(currentActionNum), "Data about the action is not submitted");
         super.reduce(
             actionObj.action,
             actionObj.data,
@@ -255,7 +256,7 @@ contract MerkluxCase is Secondary, MerkluxVM {
     }
 
     function _done(Task _task) private {
-        require(!todos[uint(_task)]);
+        require(!todos[uint(_task)], "Task is already done");
         todos[uint(_task)] = true;
         emit TaskDone(_task);
     }

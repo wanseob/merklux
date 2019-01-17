@@ -182,7 +182,7 @@ contract MerkluxStore is Secondary, IMerkluxStoreForVM, IStateTree {
     function _updateState(bytes _key, bytes _value, bool _isReducer) private {
         if (!_isReducer && _key.length > 1) {
             // Reducer cannot be overwritten through this function
-            require(!(_key[0] == byte(0) && _key[1] == byte(38)), "MerkluxStore: & is only allowed for reducers");
+            require(_key[0] != byte(38), "Prefix & is reserved for reducers");
         }
         _set(_key, _value);
     }

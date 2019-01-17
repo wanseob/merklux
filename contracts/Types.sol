@@ -55,7 +55,10 @@ library Chain {
     function addBlock(Object storage _obj, Block.Object memory _candidate) internal {
         bytes32 blockHash = Block.getBlockHash(_candidate);
         if (_obj.chain.length > 0) {
-            require(_obj.blocks[_candidate.previousBlock].actionNum < _candidate.actionNum);
+            require(
+                _obj.blocks[_candidate.previousBlock].actionNum < _candidate.actionNum,
+                "Submitted block starts with invalid action number "
+            );
         }
         _obj.chain.push(blockHash);
         _obj.blocks[blockHash] = _candidate;

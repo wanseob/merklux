@@ -38,7 +38,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
 
 
     modifier onlyReducers() {
-        require(msg.sender == primary() || reducers.has(msg.sender));
+        require(msg.sender == primary() || reducers.has(msg.sender), "Only registered reducers can call this function");
         _;
     }
 
@@ -50,7 +50,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     }
 
     function setActionNum(uint256 _actionNum) public onlyPrimary {
-        require(actionNum == 0);
+        require(actionNum == 0, "Action number is already set");
         actionNum = _actionNum;
     }
 
@@ -73,7 +73,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
         bytes32 reducerKey;
         address deployedAddress;
         (reducerKey, deployedAddress) = _registry.registerReducer(_data);
-        require(bytes(_action).length != 0);
+        require(bytes(_action).length != 0, "Action is invalid");
         bytes memory actionKey = _appendPrefix(_action);
         _updateState(actionKey, abi.encodePacked(reducerKey), true);
         reducers.add(deployedAddress);
@@ -82,7 +82,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     function runReducer(IMerkluxReducerRegistry _registry, address _sender, string _action, bytes _data) public onlyPrimary {
         MerkluxReducer reducer = _retrieveReducer(_registry, _action);
         // Not a registered reducer
-        require(address(reducer) != address(0));
+        require(address(reducer) != address(0), "Reducer is not registered");
 
         bytes memory rlpEncodedPairs;
 
@@ -91,7 +91,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
         RLPReader.RLPItem[] memory pairs = rlpEncodedPairs.toRlpItem().toList();
         // length should be an even number
         // Reducer should returns rlp encoded list which length is an even number
-        require(pairs.length & 1 == 0);
+        require(pairs.length & 1 == 0, "Reducer returns invalid rlp data");
 
         // Update key value pairs
         for (uint i = 0; i < (pairs.length / 2); i++) {
@@ -100,7 +100,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     }
 
     function increaseAccountActionNonce(address _user, uint256 _nonce) public onlyPrimary {
-        require(nonce[_user] < _nonce);
+        require(nonce[_user] < _nonce, "Nonce should be greater than before");
         if (nonce[_user] == 0) {
             callers.push(_user);
         }
@@ -208,7 +208,7 @@ contract MerkluxStoreForCase is Secondary, IMerkluxStoreForVM, IStateTree {
     function _updateState(bytes _key, bytes _value, bool _isReducer) private {
         if (!_isReducer && _key.length > 1) {
             // Reducer cannot be overwritten through this function
-            require(!(_key[0] == byte(0) && _key[1] == byte(38)));
+            require(_key[0] != byte(38), "Prefix & is reserved for reducers");
         }
         _set(_key, _value);
     }
