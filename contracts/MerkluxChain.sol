@@ -50,13 +50,15 @@ contract MerkluxChain is Secondary, MerkluxVM {
         uint256 nonce
     ) {
         (prevBlockHash, nonce) = getDataForNewAction();
-        actionHash = keccak256(abi.encodePacked(
+        actionHash = keccak256(
+            abi.encodePacked(
                 _action,
                 _data,
                 prevBlockHash,
                 nonce,
                 _deployReducer
-            ));
+            )
+        );
     }
 
     function getLastBlock() public view returns (bytes32) {

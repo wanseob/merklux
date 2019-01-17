@@ -32,7 +32,8 @@ library Block {
     }
 
     function getBlockHash(Object memory _block) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(
+        return keccak256(
+            abi.encodePacked(
                 _block.previousBlock,
                 _block.actionNum,
                 _block.state,

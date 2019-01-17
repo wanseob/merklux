@@ -18,11 +18,5 @@ contract MerkluxReducer {
     * @return _encodedPairs rlp encoded keys value pairs to update
     It is possible to process a merkle proof with a minimum number of nodes by submitting only the referred nodes.
     */
-    function reduce(
-        IStateTree _tree,
-        address _from,
-        bytes _encodedParams
-    ) public returns (
-        bytes memory _encodedPairs
-    );
+    function reduce(IStateTree _tree, address _from, bytes _encodedParams) public returns (bytes memory _encodedPairs);
 }

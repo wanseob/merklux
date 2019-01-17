@@ -41,13 +41,15 @@ contract MerkluxVM is IMerkluxProvider {
         // only accept when prev block is same
         require(_isRecent(_prevBlock), "MerkluxVM: Not a recent tx, update prev block");
         // check the signature
-        address _from = keccak256(abi.encodePacked(
+        address _from = keccak256(
+            abi.encodePacked(
                 _action,
                 _data,
                 _prevBlock,
                 _nonce,
                 _deployReducer
-            )).toEthSignedMessageHash().recover(_signature);
+            )
+        ).toEthSignedMessageHash().recover(_signature);
 
         // increase nonce
         store.increaseAccountActionNonce(_from, _nonce);

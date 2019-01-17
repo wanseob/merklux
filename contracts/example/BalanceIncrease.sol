@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import '../MerkluxReducer.sol';
+import "../MerkluxReducer.sol";
 
 contract BalanceIncrease is MerkluxReducer {
     function reduce(
