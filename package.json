@@ -33,9 +33,9 @@
   },
   "dependencies": {
     "openzeppelin-solidity": "2.0.0",
-    "solidity-partial-tree": "^1.1.1",
-    "solidity-patricia-tree": "^1.1.1",
-    "solidity-rlp": "^1.1.0"
+    "solidity-partial-tree": "1.1.1",
+    "solidity-patricia-tree": "1.1.1",
+    "solidity-rlp": "1.1.0"
   },
   "scripts": {
     "sequenceTest": "scripts/sequenceTest.sh",
