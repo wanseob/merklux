@@ -36,7 +36,7 @@ contract MerkluxChain is Secondary, MerkluxVM {
         uint256 _nonce,
         bool _deployReducer,
         bytes _signature
-    ) public onlyPrimary {
+    ) public {
         super.reduce(_action, _data, _prevBlock, _nonce, _deployReducer, _signature);
     }
 

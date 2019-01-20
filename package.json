@@ -8,16 +8,16 @@
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
-    "babel-polyfill": "^6.26.0",
     "babel-preset-es2015": "^6.24.1",
+    "babel-preset-stage-1": "^6.24.1",
     "chai": "^4.2.0",
     "chai-bignumber": "^2.0.2",
     "ethlint": "^1.2.2",
     "ganache-cli": "^6.2.5",
     "ganache-core": "^2.3.3",
     "husky": "^1.3.1",
-    "lerna": "^3.10.5",
     "lint-staged": "^8.1.0",
+    "nyc": "^13.1.0",
     "prettier": "^1.15.3",
     "prettier-plugin-solidity-refactor": "^1.0.0-alpha.11",
     "rlp": "^2.2.1",
@@ -26,28 +26,33 @@
     "solidity-docgen": "^0.1.0",
     "standard": "^12.0.1",
     "truffle": "^5.0.1",
+    "truffle-artifactor": "^4.0.2",
     "truffle-hdwallet-provider": "^0.0.5",
     "typedarray-to-buffer": "^3.1.5",
     "web3": "^1.0.0-beta.37",
     "yaeti": "^1.0.2"
   },
   "dependencies": {
+    "@babel/polyfill": "^7.2.5",
+    "express": "^4.16.4",
     "openzeppelin-solidity": "2.0.0",
     "solidity-partial-tree": "1.1.1",
     "solidity-patricia-tree": "1.1.1",
-    "solidity-rlp": "1.1.0"
+    "solidity-rlp": "1.1.0",
+    "truffle-contract": "^4.0.2"
   },
   "scripts": {
-    "sequenceTest": "scripts/sequenceTest.sh",
-    "coverage": "./node_modules/.bin/solidity-coverage",
-    "build": "./node_modules/.bin/truffle compile",
+    "coverage": "scripts/coverage.sh",
+    "build": "./node_modules/.bin/truffle compile && npm run artifact",
+    "artifact": "node scripts/artifactor.js",
     "migrate": "./node_modules/.bin/truffle migrate",
     "console": "./node_modules/.bin/truffle console",
     "chain": "./node_modules/.bin/ganache-cli -s merklux",
     "test": "scripts/test.sh",
     "ethlint": "./node_modules/.bin/solium -d contracts",
-    "standard": "./node_modules/.bin/standard test/**/*.js --fix",
-    "transpile": "babel --presets es2016 -d lib/ src"
+    "standard": "./node_modules/.bin/standard test/** src/** --fix",
+    "transpile": "./node_modules/.bin/babel --presets es2016 -d lib/ src",
+    "precommit": "lint-staged && npm run test"
   },
   "standard": {
     "globals": [
@@ -64,6 +69,16 @@
       "should",
       "expect",
       "assert"
+    ]
+  },
+  "lint-staged": {
+    "*.js": [
+      "npm run standard",
+      "git add"
+    ],
+    "*.sol": [
+      "npm run ethlint",
+      "git add"
     ]
   },
   "repository": {

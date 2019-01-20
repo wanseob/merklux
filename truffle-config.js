@@ -20,14 +20,23 @@ module.exports = {
     development: {
       host: 'localhost',
       port: 8545,
-      network_id: '*',
+      network_id: '*'
+    },
+    test: {
+      host: 'localhost',
+      port: 8546,
+      network_id: '*'
     }
   },
-  solc: {
-    version: "^0.4.25",
-    optimizer: {
-      enabled: true,
-      runs: 500
+  compilers: {
+    solc: {
+      version: '0.4.25',
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 200
+        }
+      }
     }
   }
 }
