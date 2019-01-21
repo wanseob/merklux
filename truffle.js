@@ -20,7 +20,17 @@ module.exports = {
     development: {
       host: 'localhost',
       port: 8545,
-      network_id: '*',
+      network_id: '*'
+    },
+    test: {
+      host: 'localhost',
+      port: 8546,
+      network_id: '*'
+    },
+    coverage: {
+      host: 'localhost',
+      port: 8547,
+      network_id: '*'
     }
   },
   compilers: {
@@ -33,5 +43,5 @@ module.exports = {
         }
       }
     }
-  },
+  }
 }

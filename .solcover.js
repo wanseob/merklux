@@ -1,7 +1,14 @@
 module.exports = {
-  compileCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle compile --network development',
-  testCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle test --network development',
+  compileCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle compile',
+  testCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle test --network coverage',
+  'norpc': true,
+  'copyPackages': [
+    'openzeppelin-solidity',
+    'solidity-partial-tree',
+    'solidity-patricia-tree',
+    'solidity-rlp'
+  ],
   skipFiles: [
-    'contracts/Migrations.sol'
+    'libs'
   ]
 }

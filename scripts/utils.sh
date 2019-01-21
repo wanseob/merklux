@@ -28,7 +28,7 @@ compile() {
 
 # Run private block-chain for test cases
 run_ganache() {
-  ./node_modules/.bin/ganache-cli -s merklux > /dev/null & pid=$!
+  ./node_modules/.bin/ganache-cli -p $1 -s merklux > /dev/null & pid=$!
   if ps -p $pid > /dev/null
   then
     echo "Running ganache..."
@@ -38,19 +38,13 @@ run_ganache() {
   fi
 }
 
-# Deploy contracts on the block-chain for testing
-migrate() {
-  ./node_modules/.bin/truffle migrate --network development
-  [ $? -ne 0 ] && exit 1
-}
-
 # Run test cases with truffle
 run_test() {
-  ./node_modules/.bin/truffle test --network development
+  ./node_modules/.bin/truffle test --network test
   [ $? -ne 0 ] && exit 1
 }
 
 # Check test coverage
 run_coverage() {
-  ./node_modules/.bin/solidity-coverage
+    ./node_modules/.bin/solidity-coverage
 }
