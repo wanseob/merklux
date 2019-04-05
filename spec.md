@@ -58,7 +58,7 @@ Every reducer should contain three parts:
 2. Read stored key-value pairs and get new key-value pairs to update.
 3. Encode key-value pairs to return.
 
-When a reducer reads stored values, it should use the `IStateTree.read()` function. This function records the referred key-value pairs that can make it easy to construct a partial Merkle tree for a challenge later. If we make a reducer a "view" function, we have to submit all key-value pairs of the Merkle tree for a challenge due to the lack of information about referred keys. This is the reason why the reducer function does not have the "view" type of state mutability even though reducers should follow the functional programming pattern. Because of this current limitation, we need to audit a reducer before deploying it to the Merklux if it is practically a "view" function and we ignore the fact that `IStateTree.read()` uses `SSTORE` opcode.
+When a reducer reads stored values, it should use the `IStateTree.read()` function. This function records the referred key-value pairs that can make it easy to construct a partial Merkle tree for a challenge later. If we make a reducer a "view" function, we have to submit all key-value pairs of the Merkle tree for a challenge due to the lack of information about referred keys. This is the reason why the reducer function does not have the "view" type of state mutability even though reducers should follow the functional programming pattern. Because of this current limitation, we need to audit a reducer before deploying it to the Merklux whether it is practically a "view" function if we ignore the fact that `IStateTree.read()` uses `SSTORE` opcode.
 
 ### Deploying a reducer
 
