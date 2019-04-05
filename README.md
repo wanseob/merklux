@@ -1,4 +1,10 @@
-# Merklux
+# Specification
+
+[See this](#spec.md)
+For more detail discussion, visit [https://ethresear.ch/t/merklux-plasma-plant](https://ethresear.ch/t/merklux-plasma-plant).  
+
+# [WIP] Merklux implementation
+
 
 [![Join the chat at https://gitter.im/commitground/merklux](https://badges.gitter.im/commitground/merklux.svg)](https://gitter.im/commitground/merklux?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
