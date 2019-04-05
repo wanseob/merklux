@@ -334,7 +334,7 @@ This type of challenge is executed merely by sending a challenge request with th
 
 ### Data unavailability
 
-If no operator provides proper Merkle proof data to a user, the user can submit a stream request using an assumed key-value pair without Merkle proof. If anyone submits the proper key-value pair and the Merkle proof data for the item, Merklux executes the stream request with the assumed values. On the other hand, if someone submits a Merkle proof for the item that has a different value, the stream request is canceled, and the bond for the challenge goes to the Merkle proof submitter.
+If no operator provides proper Merkle proof data to a user, the user can submit a stream request using an assumed key-value pair without Merkle proof. If no one submits the proper key-value pair and the Merkle proof data for the item, Merklux executes the stream request with the assumed values. On the other hand, if someone submits a Merkle proof for the item that has a different value, the stream request is canceled, and the bond for the challenge goes to the Merkle proof submitter.
 
 ### Failure in duty
 
