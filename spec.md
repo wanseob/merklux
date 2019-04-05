@@ -169,7 +169,7 @@ When a new anchor checkpoint comes up, to submit a new plasma checkpoint, it sho
 
 ### Differences with the Casper FFG
 
-Most of all, Casper PEPOW is for layer-2 solutions. So it gives the Casper reward by minting token to the layer-2 validators. Moreover, to provide the main-net level security to the 2nd layer, unlike the Casper FFG, justified checkpoints can be reverted by the challenge system.
+Most of all, Casper PEPoW is for layer-2 solutions. So it gives the Casper reward by minting token to the layer-2 validators. Moreover, to provide the main-net level security to the 2nd layer, unlike the Casper FFG, justified checkpoints can be reverted by the challenge system.
 
 Any checkpoint, which is justified, but not finalized yet, can get an invalid transition challenge. If the challenge reverts the justified checkpoint, validators who voted to the checkpoint are all slashed. It makes the conflicting fork being able to be justified. Further, to finalize a checkpoint, all of its ancestor checkpoints should not be in dispute.
 
