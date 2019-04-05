@@ -10,11 +10,11 @@ Let's deeply dive more into how Merklux works in practice.
 
 When we develop a single page web application, we usually use a Flux pattern to manage the whole state of the application. It makes it much easier to debug the application with the uni-directional data flow. For example, Redux, a Flux implementation for React applications, manages the whole state of the application using a Redux store. In Redux, dispatching an action is the only way to update the Redux store. When an action is dispatched by clicking something or fetching from a server, registered "Reducer" returns a new state by map-reducing the previous state. Then React components update its state by the new state of the Redux store. This kind of uni-directional data flow offers a concrete way to track how the UI changed by which event. You can see how Redux works below:
 
-![Screenshot%20from%202019-04-04%2017-03-54|690x246](upload://35gQsM5qf5G7tFZKTv8vv33Gxj2.png) 
+![redux](./assets/redux.png) 
 
 Merklux borrows the Redux pattern to manage the state transitions in the plasma chain. Then, we can track how the state changes if there is dispatch history. The difference with Redux is that Merklux manages its state using a smart contract which implements the Merkle tree data structure. Through applying the Flux pattern with the Merkle tree, the state transitions occurred in the plasma chain can be easily verified on the root chain. Furthermore, if we use a Merkle tree, we can read the plasma chain's state on the root chain using a simple Merkle proof.
 
-![Merklux|690x247](upload://jMZ9yQFNFALGFmMO8wRMGXtidOM.png) 
+![merklux](./assets/merklux.png) 
 
 ## Verifiable state transitions
 
@@ -124,7 +124,7 @@ If an action is dispatched to the plasma chain, MerkluxVM updates three Merkle t
 
 If there are two plasma checkpoints, we can prove that one is the direct child of the other by reenacting state transitions. First, to reenact the state transitions, we submit referred branches of the state tree during the epoch to construct a partial tree for the basis. The submitted keys also construct a reference tree, and finally, it should have the same root hash value as the child checkpoint's reference tree. In the second step, we submit all action data during the epoch, and then they construct the action tree until it becomes equal to the child checkpoint's action tree root value. Finally, MerkluxVM executes the submitted actions in numerical order.
 
-![Partial%20tree|674x317](upload://cBDaqPJ28lxpln5t7B4tAeJXjNE.png) 
+![partial-tree](./assets/partial-tree.png) 
 
 ## Cross-state items
 
@@ -153,7 +153,7 @@ To the child chain:
 ```
 Merklux uses the cross-state items to read the plasma state on the root chain or in the opposite way.
 
-![Cross%20state|590x218,100%](upload://fnwkdBhWWKNsKD95jVnRUEHWn00.png) 
+![cross-state](./assets/cross-state.png) 
 
 ## Cross-checkpoint
 
@@ -163,7 +163,7 @@ An anchor checkpoint is a snapshot of the root hash of the anchor state tree for
 
 When a new anchor checkpoint comes up, to submit a new plasma checkpoint, it should include the Merkle proof which assures that the plasma state tree updated the anchor cross-state with the new anchor checkpoint. It makes it able to access the recent anchor state from the plasma chain.
 
-![Cross%20checkpoint|690x382](upload://ptW7wMwBh9x9Du40KiJ7X2U5HHM.png) 
+![cross-checkpoint](./assets/cross-checkpoint.png) 
 
 ## Casper PEPoW
 
