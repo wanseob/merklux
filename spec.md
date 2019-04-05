@@ -1,5 +1,3 @@
-Here is more detail specification for Merklux
-
 ## Introduction
 
 Merklux is a framework that provides a general state plasma solution with economic incentives to operate the plasma chain. The name Merklux was used because this uses the Flux pattern to manage the plasma chain's Merkle tree to be verifiable on the root chain. Through the Flux pattern, we can run a general state plasma chain with main-net level security with a challenge system against data-withholding situations, invalid state transitions, and failure in duty to update the plasma chain.
