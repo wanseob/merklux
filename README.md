@@ -1,6 +1,7 @@
 # Specification
 
-[See this](#spec.md)
+[Please see this document](#spec.md)
+
 For more detail discussion, visit [https://ethresear.ch/t/merklux-plasma-plant](https://ethresear.ch/t/merklux-plasma-plant).  
 
 # [WIP] Merklux implementation
