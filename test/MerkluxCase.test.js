@@ -20,6 +20,7 @@ contract('MerkluxCase', async ([_, operator, sealer, accuser, user]) => {
       logger: { log: () => {} },
       seed: 'merklux'
     })
+
     plasma = await runMerkluxOnPlasmaChain(plasmaNet, operator, sealer, user)
     caseManager = await MerkluxCaseManager.new(
       'V1',
